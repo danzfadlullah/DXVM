@@ -1508,7 +1508,11 @@ namespace dxvk {
       info.pTessellationState     = &key.prState.tsInfo;
 
     if (!m_flags.test(DxvkGraphicsPipelineFlag::HasRasterizerDiscard)) {
-      info.pNext                  = &key.foState.rtInfo;
+      // Use dynamic rendering when preferred and supported (Vulkan 1.3+)
+      if (m_device->perfHints().preferDynamicRendering
+       && m_device->features().vk13.dynamicRendering) {
+        info.pNext = &key.foState.rtInfo;
+      }
       info.pViewportState         = &key.prState.vpInfo;
       info.pMultisampleState      = &key.foState.msInfo;
       info.pDepthStencilState     = &key.fsState.dsInfo;
