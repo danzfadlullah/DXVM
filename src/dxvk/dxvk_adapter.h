@@ -315,6 +315,38 @@ namespace dxvk {
         return m_linkedToDGPU;
     }
 
+    /**
+     * \brief Checks whether this is a Mali GPU
+     * \returns \c true if the GPU is Mali (ARM proprietary or Mesa PanVK)
+     */
+    bool isMali() const {
+      return m_isMali;
+    }
+
+    /**
+     * \brief Mali GPU architecture
+     */
+    enum class MaliArchitecture {
+      Unknown,
+      Bifrost,
+      Valhall
+    };
+
+    /**
+     * \brief Gets the Mali architecture
+     * \returns Mali architecture enum
+     */
+    MaliArchitecture getMaliArchitecture() const {
+      return m_maliArch;
+    }
+
+    /**
+     * \brief Checks if a Mali-specific extension is supported
+     * \param extName Extension name to check
+     * \returns \c true if extension is supported
+     */
+    bool hasMaliExtension(const char* extName) const;
+
   private:
     
     DxvkInstance*           m_instance  = nullptr;
@@ -327,6 +359,9 @@ namespace dxvk {
 
     Rc<DxvkAdapter>     m_linkedIGPUAdapter;
     bool                m_linkedToDGPU = false;
+
+    bool                m_isMali = false;
+    MaliArchitecture    m_maliArch = MaliArchitecture::Unknown;
 
     std::array<DxvkAdapterMemoryStats, VK_MAX_MEMORY_HEAPS> m_memoryStats = { };
 

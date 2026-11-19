@@ -317,6 +317,17 @@ namespace dxvk {
         else if (deviceProperties[i].deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
           numIGPU += 1;
 
+        // Log Mali GPU detection
+        if (adapter->isMali()) {
+          const char* archStr = "Unknown";
+          switch (adapter->getMaliArchitecture()) {
+            case DxvkAdapter::MaliArchitecture::Valhall: archStr = "Valhall"; break;
+            case DxvkAdapter::MaliArchitecture::Bifrost: archStr = "Bifrost"; break;
+            default: break;
+          }
+          Logger::info(str::format("DXVK: Detected Mali GPU (", archStr, "): ", adapter->info().deviceName));
+        }
+
         m_adapters.push_back(std::move(adapter));
       }
     }

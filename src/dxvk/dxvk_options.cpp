@@ -1,8 +1,13 @@
 #include "dxvk_options.h"
+#include "dxvk_adapter.h"
 
 namespace dxvk {
 
   DxvkOptions::DxvkOptions(const Config& config) {
+    // Note: isMali check requires adapter, which isn't available here yet.
+    // Mali-specific defaults are applied in DxvkDevice::determineDeviceHints()
+    // based on adapter detection.
+    
     enableDebugUtils      = config.getOption<bool>    ("dxvk.enableDebugUtils",       false);
     enableMemoryDefrag    = config.getOption<Tristate>("dxvk.enableMemoryDefrag",     Tristate::Auto);
     numCompilerThreads    = config.getOption<int32_t> ("dxvk.numCompilerThreads",     0);
@@ -30,6 +35,19 @@ namespace dxvk {
 
     auto budget = config.getOption<int32_t>("dxvk.maxMemoryBudget", 0);
     maxMemoryBudget = VkDeviceSize(std::max(budget, 0)) << 20u;
+
+    // Mali-specific options (defaults are conservative; overridden in determineDeviceHints for Mali)
+    enableDynamicRendering       = config.getOption<bool>("dxvk.enableDynamicRendering", false);
+    enableFP16Shaders            = config.getOption<bool>("dxvk.enableFP16Shaders", false);
+    enableINT8Shaders            = config.getOption<bool>("dxvk.enableINT8Shaders", false);
+    enableDescriptorIndexing     = config.getOption<bool>("dxvk.enableDescriptorIndexing", false);
+    enableBufferDeviceAddress    = config.getOption<bool>("dxvk.enableBufferDeviceAddress", false);
+    enableShaderTileImage        = config.getOption<bool>("dxvk.enableShaderTileImage", false);
+    enableARMBuiltins            = config.getOption<bool>("dxvk.enableARMBuiltins", false);
+    enableSynchronization2       = config.getOption<bool>("dxvk.enableSynchronization2", false);
+    enableTimelineSemaphore      = config.getOption<bool>("dxvk.enableTimelineSemaphore", false);
+    preferCachedMemory           = config.getOption<Tristate>("dxvk.preferCachedMemory", Tristate::Auto);
+    maxMemoryBudgetMB            = config.getOption<int32_t>("dxvk.maxMemoryBudget", 0);
   }
 
 }

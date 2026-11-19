@@ -92,6 +92,30 @@ namespace dxvk {
 
     /// Device name
     std::string deviceFilter;
+
+    // Mali-specific options
+    /// Enable dynamic rendering (VK_KHR_dynamic_rendering)
+    bool enableDynamicRendering = true;
+    /// Enable FP16 shader arithmetic (VK_KHR_shader_float16_int8)
+    bool enableFP16Shaders = true;
+    /// Enable INT8 shader arithmetic (VK_KHR_shader_float16_int8)
+    bool enableINT8Shaders = true;
+    /// Enable descriptor indexing (VK_EXT_descriptor_indexing)
+    bool enableDescriptorIndexing = true;
+    /// Enable buffer device address (VK_KHR_buffer_device_address)
+    bool enableBufferDeviceAddress = true;
+    /// Enable shader tile image (VK_EXT_shader_tile_image)
+    bool enableShaderTileImage = true;
+    /// Enable ARM shader core builtins (VK_ARM_shader_core_builtins)
+    bool enableARMBuiltins = true;
+    /// Enable synchronization2 (VK_KHR_synchronization2)
+    bool enableSynchronization2 = true;
+    /// Enable timeline semaphores (VK_KHR_timeline_semaphore)
+    bool enableTimelineSemaphore = true;
+    /// Prefer cached memory for Mali unified memory
+    Tristate preferCachedMemory = Tristate::Auto;
+    /// Maximum memory budget in MB (for unified memory systems)
+    int32_t maxMemoryBudgetMB = 3072;
   };
 
 }

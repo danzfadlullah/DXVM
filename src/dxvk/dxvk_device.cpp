@@ -693,6 +693,10 @@ namespace dxvk {
     hints.renderPassResolveFormatBug = m_adapter->matchesDriver(
       VK_DRIVER_ID_NVIDIA_PROPRIETARY);
 
+    // Mali GPU detection
+    bool isMali = m_adapter->isMali();
+    auto maliArch = m_adapter->getMaliArchitecture();
+
     // On tilers we need to respect render passes some more. Most of
     // these drivers probably can't run DXVK anyway, but might as well
     bool tilerMode = m_adapter->matchesDriver(VK_DRIVER_ID_MESA_TURNIP)
@@ -711,6 +715,10 @@ namespace dxvk {
     hints.preferRenderPassOps = tilerMode;
     hints.preferCachedMemory = tilerMode;
 
+    // Mali-specific: prefer dynamic rendering
+    if (isMali && m_options.enableDynamicRendering)
+      hints.preferDynamicRendering = true;
+
     // Compute-based mip generation has some potential for performance
     // regressions or driver issues. Just enable it on Nvidia and RADV
     // (GFX10+) for now, where it is proven to work.
@@ -718,12 +726,20 @@ namespace dxvk {
                              || (m_adapter->matchesDriver(VK_DRIVER_ID_MESA_RADV)
                               && m_properties.vk13.minSubgroupSize == 32u));
 
+    // Mali-specific: compute mip gen on Valhall
+    if (isMali && maliArch == DxvkAdapter::MaliArchitecture::Valhall)
+      hints.preferComputeMipGen = true;
+
     // On AMD we can expect it to be optimal to simply pass the heap offset
     // to descriptor memory through as-is to avoid some ALU. Some other
     // vendors are more sensitive towards knowing descriptor alignment.
     hints.preferDescriptorByteOffsets = m_adapter->matchesDriver(VK_DRIVER_ID_MESA_RADV)
                                      || m_adapter->matchesDriver(VK_DRIVER_ID_AMD_OPEN_SOURCE)
                                      || m_adapter->matchesDriver(VK_DRIVER_ID_AMD_PROPRIETARY);
+
+    // Mali-specific: descriptor byte offsets (like RADV)
+    if (isMali)
+      hints.preferDescriptorByteOffsets = true;
 
     return hints;
   }
