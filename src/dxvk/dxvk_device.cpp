@@ -754,11 +754,23 @@ namespace dxvk {
     m_shaderOptions.minStorageBufferAlignment =
       m_properties.core.properties.limits.minStorageBufferOffsetAlignment;
 
-    if (m_features.vk12.shaderFloat16)
+    // Mali FP16/INT8 support
+    bool isMali = m_adapter->isMali();
+    auto maliArch = m_adapter->getMaliArchitecture();
+
+    if (m_features.vk12.shaderFloat16 && (m_options.enableFP16Shaders || isMali))
       m_shaderOptions.flags.set(DxvkShaderCompileFlag::Supports16BitArithmetic);
 
     if (m_features.vk11.storagePushConstant16 && m_features.vk12.storagePushConstant8)
       m_shaderOptions.flags.set(DxvkShaderCompileFlag::SupportsSubDwordPushData);
+
+    // Mali INT8 support (enabled with FP16 via same VK_KHR_shader_float16_int8 extension)
+    if (m_features.vk12.shaderInt8 && (m_options.enableINT8Shaders || isMali))
+      m_shaderOptions.flags.set(DxvkShaderCompileFlag::Supports16BitArithmetic);
+
+    // Mali Valhall-specific IR optimizations (disabled - requires dxbc-spirv support)
+    // if (isMali && maliArch == DxvkAdapter::MaliArchitecture::Valhall)
+    //   m_shaderOptions.flags.set(DxvkShaderCompileFlag::MaliValhallOptimizations);
 
     // Need to tag typed storage image loads with the format on some devices
     auto r32Features = getFormatFeatures(VK_FORMAT_R32_SFLOAT).optimal

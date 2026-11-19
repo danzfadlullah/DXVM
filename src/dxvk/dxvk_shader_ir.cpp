@@ -2278,6 +2278,14 @@ namespace dxvk {
     if (m_info.options.spirv.test(DxvkShaderSpirvFlag::SupportsResourceIndexing))
       options.descriptorIndexing.optimizeDescriptorIndexing = true;
 
+    // Mali Valhall-specific IR optimizations (disabled - requires dxbc-spirv support)
+    // if (m_info.options.flags.test(DxvkShaderCompileFlag::MaliValhallOptimizations)) {
+    //   options.arithmeticOptions.useFma = true;
+    //   options.arithmeticOptions.useBfmBfi = true;
+    //   options.derivativeOptions.useQuadOps = true;
+    //   options.arithmeticOptions.optimizeTranscendentals = true;
+    // }
+
     dxbc_spv::ir::legalizeIr(builder, options);
 
     // Generate shader metadata based on the final code
