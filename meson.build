@@ -233,3 +233,12 @@ if platform != 'windows'
 endif
 
 subdir('src')
+
+# The harness is a Windows-only console tool. Skip it for dxvk-native and for
+# builds that did not ask for it.
+dxvm_harness_opt = get_option('harness')
+dxvm_harness_target = target_machine.system() == 'windows' or host_machine.system() == 'windows'
+if dxvm_harness_opt.enabled() or (dxvm_harness_opt.auto() and dxvm_harness_target)
+  subdir('tests/dxvm-harness')
+endif
+
