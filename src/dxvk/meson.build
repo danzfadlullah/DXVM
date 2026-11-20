@@ -63,6 +63,7 @@ dxvk_src = [
   'dxvk_mali_extensions.cpp',
   'dxvm_mali/dxvm_mali_config.cpp',
   'dxvm_mali/dxvm_mali_context.cpp',
+  'dxvm_mali/dxvm_mali_features.cpp',
   'dxvk_memory.cpp',
   'dxvk_meta_blit.cpp',
   'dxvk_meta_clear.cpp',

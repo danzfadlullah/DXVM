@@ -31,6 +31,7 @@ LDFLAGS=( -Wl,--gc-sections )
 MODULE_SOURCES=(
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_config.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_context.cpp"
+  "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_features.cpp"
 )
 CONFIG_SOURCE="$SRC_DIR/util/config/config.cpp"
 

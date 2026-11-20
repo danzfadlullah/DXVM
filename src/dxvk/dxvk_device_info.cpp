@@ -7,6 +7,7 @@
 #include "dxvk_device_info.h"
 #include "dxvk_instance.h"
 #include "dxvk_limits.h"
+#include "dxvm_mali/dxvm_mali_features.h"
 
 namespace dxvk {
 
@@ -69,8 +70,6 @@ namespace dxvk {
     HANDLE_EXT(khrSwapchain);                      \
     HANDLE_EXT(khrSwapchainMaintenance1);          \
     HANDLE_EXT(khrSwapchainMutableFormat);         \
-    HANDLE_EXT(khrSynchronization2);               \
-    HANDLE_EXT(khrTimelineSemaphore);              \
     HANDLE_EXT(khrUnifiedImageLayouts);            \
     HANDLE_EXT(khrWin32KeyedMutex);                \
     HANDLE_EXT(amdBufferMarker);                   \
@@ -81,11 +80,7 @@ namespace dxvk {
     HANDLE_EXT(nvRawAccessChains);                 \
     HANDLE_EXT(nvxBinaryImport);                   \
     HANDLE_EXT(nvxImageViewHandle);                \
-    HANDLE_EXT(intelDeviceInfo);                   \
-    HANDLE_EXT(armShaderCoreBuiltins);             \
-    HANDLE_EXT(extShaderTileImage);                \
-    HANDLE_EXT(armRasterizationOrderAttachmentAccess); \
-    HANDLE_EXT(khrFragmentShadingRate);
+    HANDLE_EXT(intelDeviceInfo);
 
   #define EXTENSIONS_WITH_PROPERTIES               \
     HANDLE_EXT(extConservativeRasterization);      \
@@ -819,6 +814,11 @@ namespace dxvk {
     CORE_VERSIONS
     EXTENSIONS_WITH_FEATURES
 
+    dxvmMaliChainFeatures(
+      m_properties.vk12.driverID == VK_DRIVER_ID_ARM_PROPRIETARY
+   || m_properties.vk12.driverID == VK_DRIVER_ID_MESA_PANVK,
+      const_cast<DxvkDeviceExtensionInfo&>(extensions), features);
+
     #undef HANDLE_CORE
     #undef HANDLE_EXT
   }
@@ -867,8 +867,8 @@ namespace dxvk {
       ENABLE_FEATURE(core.features, depthBounds, false),
       ENABLE_FEATURE(core.features, depthClamp, true),
       ENABLE_FEATURE(core.features, drawIndirectFirstInstance, false),
-      ENABLE_FEATURE(core.features, dualSrcBlend, false), // Optional: Mali lacks dual source blend
-      ENABLE_FEATURE(core.features, fillModeNonSolid, false), // Optional: Mali lacks wireframe
+      ENABLE_FEATURE(core.features, dualSrcBlend, true),
+      ENABLE_FEATURE(core.features, fillModeNonSolid, true),
       ENABLE_FEATURE(core.features, fragmentStoresAndAtomics, true),
       ENABLE_FEATURE(core.features, fullDrawIndexUint32, true),
       ENABLE_FEATURE(core.features, geometryShader, true),
@@ -877,7 +877,7 @@ namespace dxvk {
       ENABLE_FEATURE(core.features, largePoints, false),
       ENABLE_FEATURE(core.features, logicOp, false),
       ENABLE_FEATURE(core.features, multiDrawIndirect, true),
-      ENABLE_FEATURE(core.features, multiViewport, false), // Optional: Mali has 1 viewport only
+      ENABLE_FEATURE(core.features, multiViewport, true),
       ENABLE_FEATURE(core.features, occlusionQueryPrecise, true),
       ENABLE_FEATURE(core.features, pipelineStatisticsQuery, false),
       ENABLE_FEATURE(core.features, robustBufferAccess, true),
@@ -905,7 +905,7 @@ namespace dxvk {
       ENABLE_FEATURE(core.features, shaderResourceResidency, false),
       ENABLE_FEATURE(core.features, shaderResourceMinLod, false),
       ENABLE_FEATURE(core.features, tessellationShader, false),
-      ENABLE_FEATURE(core.features, textureCompressionBC, false), // Optional: BCn->ASTC transcoding on Mali
+      ENABLE_FEATURE(core.features, textureCompressionBC, true),
       ENABLE_FEATURE(core.features, variableMultisampleRate, false),
       ENABLE_FEATURE(core.features, vertexPipelineStoresAndAtomics, false),
       ENABLE_FEATURE(core.features, wideLines, false),
@@ -1113,10 +1113,6 @@ namespace dxvk {
       /* Mutable format used to change srgb-ness of swapchain views */
       ENABLE_EXT(khrSwapchainMutableFormat, false),
 
-      /* Synchronization2 and timeline semaphores for efficient GPU sync */
-      ENABLE_EXT_FEATURE(khrSynchronization2, synchronization2, false),
-      ENABLE_EXT_FEATURE(khrTimelineSemaphore, timelineSemaphore, false),
-
       /* Use GENERAL layout for everything */
       ENABLE_EXT_FEATURE(khrUnifiedImageLayouts, unifiedImageLayouts, false),
 
@@ -1147,12 +1143,6 @@ namespace dxvk {
 
       /* Intel device info, used to detect the GPU architecture generation */
       ENABLE_EXT(intelDeviceInfo, false),
-
-      /* ARM Mali-specific features (optional, gated during feature chaining) */
-      ENABLE_EXT_FEATURE(armShaderCoreBuiltins, shaderCoreBuiltins, false),
-      ENABLE_EXT_FEATURE(extShaderTileImage, shaderTileImageColorReadAccess, false),
-      ENABLE_EXT_FEATURE(armRasterizationOrderAttachmentAccess, rasterizationOrderColorAttachmentAccess, false),
-      ENABLE_EXT_FEATURE(khrFragmentShadingRate, pipelineFragmentShadingRate, false),
     }};
 
     #undef ENABLE_FEATURE
