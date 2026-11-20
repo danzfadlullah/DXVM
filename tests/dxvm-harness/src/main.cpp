@@ -16,6 +16,7 @@ namespace dxvmt {
   // a no-op when the host cannot build Direct3D code.
   void registerDeviceScenes(Registry& registry);
   void registerMsaaScenes(Registry& registry);
+  void registerStateScenes(Registry& registry);
 
 }
 
@@ -103,6 +104,7 @@ int main(int argc, char** argv) {
   registerSelfTestScenes(registry);
   registerDeviceScenes(registry);
   registerMsaaScenes(registry);
+  registerStateScenes(registry);
 
   // Child mode must run before anything else: it exists to be isolated.
   std::string childScene;
