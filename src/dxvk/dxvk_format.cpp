@@ -1,4 +1,5 @@
 #include "dxvk_format.h"
+#include "dxvm_mali/dxvm_mali_format_policy.h"
 #include "dxvk_adapter.h"
 
 namespace dxvk {
@@ -677,55 +678,7 @@ namespace dxvk {
    * \returns Recommended ASTC format, or VK_FORMAT_UNDEFINED if not a BCn format
    */
   VkFormat getBcnTranscodeFormat(VkFormat format) {
-    switch (format) {
-      // BC1 (DXT1) - RGB + 1-bit alpha -> ASTC 4x4 LDR
-      case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
-      case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
-      case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
-      case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
-        return format == VK_FORMAT_BC1_RGB_SRGB_BLOCK || format == VK_FORMAT_BC1_RGBA_SRGB_BLOCK
-          ? VK_FORMAT_ASTC_4x4_SRGB_BLOCK
-          : VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
-
-      // BC2 (DXT3) - Explicit alpha -> ASTC 4x4 LDR
-      case VK_FORMAT_BC2_UNORM_BLOCK:
-      case VK_FORMAT_BC2_SRGB_BLOCK:
-        return format == VK_FORMAT_BC2_SRGB_BLOCK
-          ? VK_FORMAT_ASTC_4x4_SRGB_BLOCK
-          : VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
-
-      // BC3 (DXT5) - Interpolated alpha -> ASTC 4x4 LDR
-      case VK_FORMAT_BC3_UNORM_BLOCK:
-      case VK_FORMAT_BC3_SRGB_BLOCK:
-        return format == VK_FORMAT_BC3_SRGB_BLOCK
-          ? VK_FORMAT_ASTC_4x4_SRGB_BLOCK
-          : VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
-
-      // BC4 - Single channel -> ASTC 4x4 LDR
-      case VK_FORMAT_BC4_UNORM_BLOCK:
-      case VK_FORMAT_BC4_SNORM_BLOCK:
-        return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
-
-      // BC5 - Two channels (RG) -> ASTC 4x4 LDR
-      case VK_FORMAT_BC5_UNORM_BLOCK:
-      case VK_FORMAT_BC5_SNORM_BLOCK:
-        return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
-
-      // BC6H - HDR RGB (Half float) -> ASTC 6x6 HDR
-      case VK_FORMAT_BC6H_UFLOAT_BLOCK:
-      case VK_FORMAT_BC6H_SFLOAT_BLOCK:
-        return VK_FORMAT_ASTC_6x6_SFLOAT_BLOCK;
-
-      // BC7 - High quality RGB/RGBA -> ASTC 6x6 LDR
-      case VK_FORMAT_BC7_UNORM_BLOCK:
-      case VK_FORMAT_BC7_SRGB_BLOCK:
-        return format == VK_FORMAT_BC7_SRGB_BLOCK
-          ? VK_FORMAT_ASTC_6x6_SRGB_BLOCK
-          : VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
-
-      default:
-        return VK_FORMAT_UNDEFINED;
-    }
+    return dxvmMaliRemapFormat(true, false, format);
   }
 
   /**
@@ -737,9 +690,8 @@ namespace dxvk {
    * \returns \c true if BCn transcoding should be used
    */
   bool needsBcnTranscoding(VkFormat format, const DxvkAdapter* adapter, const DxvkOptions& options) {
-    return options.enableBcnTranscoding
-        && adapter && adapter->isMali()
-        && isBcnFormat(format);
+    return options.enableBcnTranscoding && adapter && adapter->isMali()
+        && dxvmIsBcnFormat(format);
   }
 
 }

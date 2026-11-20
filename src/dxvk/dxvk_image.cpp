@@ -1,4 +1,5 @@
 #include "dxvk_image.h"
+#include "dxvm_mali/dxvm_mali_format_policy.h"
 
 #include "dxvk_device.h"
 
@@ -263,8 +264,15 @@ namespace dxvk {
     const DxvkImageViewKey& info) {
     std::unique_lock lock(m_viewMutex);
 
+    // On Mali, BCn images are created as ASTC/RGBA8. Views built from the
+    // original BCn format would be incompatible with the image, so use the
+    // image's actual format whenever the requested format is a BCn format.
+    DxvkImageViewKey viewInfo = info;
+    if (dxvmIsBcnFormat(viewInfo.format) && viewInfo.format != m_info.format)
+      viewInfo.format = m_info.format;
+
     auto entry = m_views.emplace(std::piecewise_construct,
-      std::make_tuple(info), std::make_tuple(this, info));
+      std::make_tuple(viewInfo), std::make_tuple(this, viewInfo));
 
     return &entry.first->second;
   }
