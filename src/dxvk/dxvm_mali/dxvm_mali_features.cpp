@@ -10,14 +10,20 @@ namespace dxvk {
     if (!isMali)
       return;
 
-    // Core features Mali-G615 does not support. DXVM emulates them in the
-    // state-emulation layer; see the clean architecture spec §4.6.
+    // Core features Mali-G615 does not support are already marked optional
+    // (require=false) in the baseline dxvk_device_info.cpp feature table.
+    // We only ensure they stay disabled on Mali; the state-emulation layer
+    // provides fallbacks. We do NOT change their `required` status here —
+    // that lives in the feature table and must remain device-enumerating.
     features.core.features.dualSrcBlend         = VK_FALSE;
     features.core.features.fillModeNonSolid     = VK_FALSE;
     features.core.features.multiViewport        = VK_FALSE;
     features.core.features.textureCompressionBC = VK_FALSE;
 
-    // Optional ARM/KHR features: enable only when the extension is reported.
+    // Optional ARM/KHR features: the baseline feature table already chains
+    // their structs into pNext and populates specVersion from the device.
+    // Here we only gate the feature bits: enable when the extension is
+    // actually reported as supported (specVersion != 0).
     if (extensions.armShaderCoreBuiltins.specVersion)
       features.armShaderCoreBuiltins.shaderCoreBuiltins = VK_TRUE;
 
