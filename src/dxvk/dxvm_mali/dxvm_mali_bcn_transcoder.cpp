@@ -17,7 +17,9 @@ namespace dxvk {
           VkDeviceSize          srcOffset,
           VkFormat              bcnFormat,
           const Rc<DxvkBuffer>& dst,
-          VkDeviceSize          dstOffset) {
+          VkDeviceSize          dstOffset,
+          uint32_t              imageWidth,
+          uint32_t              imageHeight) {
     if (!src || !dst)
       return VK_ERROR_INVALID_EXTERNAL_HANDLE;
 
@@ -35,12 +37,25 @@ namespace dxvk {
     VkDeviceSize blocks = available / blockSize;
     Rgba8 pixels[16];
     uint8_t* out = static_cast<uint8_t*>(dstPtr);
+    uint32_t blocksX = (imageWidth + 3u) / 4u;
+    uint32_t blocksY = (imageHeight + 3u) / 4u;
 
     for (VkDeviceSize b = 0; b < blocks; b++) {
       const uint8_t* block = static_cast<const uint8_t*>(srcPtr) + b * blockSize;
       if (!decodeBcnBlock(block, bcnFormat, pixels))
         return VK_ERROR_FORMAT_NOT_SUPPORTED;
-      std::memcpy(out + b * 64, pixels, 64); // 16 RGBA8 = 64 bytes
+      uint32_t bx = uint32_t(b % blocksX), by = uint32_t(b / blocksX);
+      // Scatter 4x4 block into linear RGBA8 rows.
+      for (uint32_t y = 0; y < 4u; y++) {
+        uint32_t py = by * 4u + y;
+        if (py >= imageHeight) continue;
+        for (uint32_t x = 0; x < 4u; x++) {
+          uint32_t px = bx * 4u + x;
+          if (px >= imageWidth) continue;
+          std::memcpy(out + (uint64_t(py) * imageWidth + px) * 4u,
+                      &pixels[y * 4u + x], 4u);
+        }
+      }
     }
 
     return VK_SUCCESS;

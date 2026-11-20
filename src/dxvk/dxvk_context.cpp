@@ -6072,12 +6072,11 @@ namespace dxvk {
           VkDeviceSize              sourceOffset,
           VkDeviceSize              subresourceAlignment,
           bool                      allowBcnTranscode) {
-    VkFormat imageFormat = image->info().format;
-
-    // Check whether BCn transcoding is needed for this image on Mali GPUs.
-    // allowBcnTranscode=false is used by the transcoder fallback path to
-    // avoid infinite recursion.
-    if (allowBcnTranscode && needsBcnTranscoding(imageFormat, m_device->adapter().ptr(), m_device->config())) {
+    // BCn source images are remapped at creation time, so the image's actual
+    // format is already ASTC/RGBA8. Gate on the remembered original BCn format.
+    VkFormat bcnFormat = image->info().bcnSourceFormat;
+    if (allowBcnTranscode && dxvmIsBcnFormat(bcnFormat)
+     && m_device->adapter()->isMali() && m_device->config().enableBcnTranscoding) {
       uploadImageBcnTranscode(image, source, sourceOffset, subresourceAlignment);
       return;
     }
@@ -6139,14 +6138,16 @@ namespace dxvk {
 
     // Transcode BCn -> RGBA8 into a staging buffer matching the image format.
     DxvkBufferCreateInfo stagingInfo = { };
-    stagingInfo.size = bcnSize / bcnInfo->elementSize * 64u;
+    stagingInfo.size = VkDeviceSize(image->info().extent.width) * image->info().extent.height * 4u;
     stagingInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     stagingInfo.stages = VK_PIPELINE_STAGE_TRANSFER_BIT;
     stagingInfo.access = VK_ACCESS_TRANSFER_READ_BIT;
     Rc<DxvkBuffer> staging = m_device->createBuffer(stagingInfo,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    VkResult vr = m_device->bcnTranscoder().transcode(source, sourceOffset, bcnFormat, staging, 0);
+    VkExtent3D fullExtent = image->mipLevelExtent(0);
+    VkResult vr = m_device->bcnTranscoder().transcode(source, sourceOffset, bcnFormat, staging, 0,
+      fullExtent.width, fullExtent.height);
     if (vr != VK_SUCCESS) {
       Logger::err("DXVM: BCn transcode failed: " + std::to_string(vr));
       uploadImageHw(image, source, sourceOffset, subresourceAlignment, false);

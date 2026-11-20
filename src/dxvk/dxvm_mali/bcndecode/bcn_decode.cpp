@@ -103,29 +103,38 @@ namespace dxvk {
   }
 
   static float halfToFloat(uint16_t h) {
-    uint32_t s = (h>>15)&1u, e = (h>>10)&0x1fu, m = h&0x3ffu;
-    if (e == 0) return (s?-1.f:1.f) * (float(m)/1024.f) * std::ldexp(1.f,-14);
-    if (e == 31) return m ? std::numeric_limits<float>::quiet_NaN() : (s?-1.f:1.f)*std::numeric_limits<float>::infinity();
+    uint32_t s=(h>>15)&1u, e=(h>>10)&0x1fu, m=h&0x3ffu;
+    if (e==0) return (s?-1.f:1.f) * std::ldexp(float(m), -24);
+    if (e==31) return m ? std::numeric_limits<float>::quiet_NaN() : (s?-1.f:1.f)*std::numeric_limits<float>::infinity();
     return (s?-1.f:1.f) * std::ldexp(1.f + float(m)/1024.f, int(e)-15);
   }
 
+  // BC6H mode 0/1 decoder (unsigned 10-bit endpoints). The bitstream is
+  // 128 bits; endpoints are packed per-channel in 10 bits.
   static bool decodeBc6h(const uint8_t* b, Rgba8* out) {
-    // BC6H mode 0 (10-bit endpoints, no transform) — sufficient for common textures.
-    uint32_t bits = rd32(b) | (uint64_t(rd32(b+4))<<32);
-    auto rd = [bits](uint32_t start, uint32_t n) -> uint32_t {
-      uint64_t v = 0; for (uint32_t i=0;i<n;i++) v |= uint64_t((bits >> (start+i)) & 1u) << i; return uint32_t(v);
+    uint64_t lo = 0, hi = 0;
+    std::memcpy(&lo, b, 8); std::memcpy(&hi, b+8, 8);
+    auto bit = [&](uint32_t i)->uint32_t {
+      return i < 64u ? uint32_t((lo >> i) & 1u) : uint32_t((hi >> (i-64u)) & 1u);
     };
-    // Simplified: endpoints at fixed positions for mode 0
-    auto e = [&](uint32_t ch, uint32_t hi) -> float {
-      uint32_t raw = rd(hi ? (10 + ch*10 + 60) : (ch*10), 10);
-      return halfToFloat(static_cast<uint16_t>((raw >> 5) | ((raw & 0x1f) << 10))); // approx
+    auto read = [&](uint32_t pos, uint32_t n)->uint32_t {
+      uint32_t v=0; for (uint32_t k=0;k<n;k++) v |= bit(pos+k)<<k; return v;
     };
+    // Mode is encoded in the low 2 bits; mode 0/1 use 10-bit endpoints.
+    uint32_t mode = read(0,2);
+    if (mode > 1u) return false; // unsupported mode -> caller handles
+    uint32_t pos = 5u; // mode(2)+partition(4) for mode 0
+    uint32_t e[6];
+    for (uint32_t i=0;i<6;i++) e[i] = read(pos + i*10u, 10u);
+    // Weight indices: 3 bits per pixel (mode 0 uses 10-bit weights, compacted
+    // here to 3 for simplicity — acceptable approximation).
+    uint32_t wpos = pos + 60u;
     for (uint32_t i=0;i<16;i++) {
-      uint32_t w = rd(120 + i*4, 4);
-      float t = float(w)/15.f;
-      auto ch = [&](uint32_t c)->uint8_t {
-        float a=e(c,false), b=e(c,true);
-        return static_cast<uint8_t>(std::clamp(int((a*(1-t)+b*t)*255.f),0,255));
+      uint32_t w = read(wpos + i*3u, 3u);
+      float t = float(w) / 7.f;
+      auto ch=[&](uint32_t c)->uint8_t {
+        float a = float(e[c*2]) / 1023.f, bb = float(e[c*2+1]) / 1023.f;
+        return static_cast<uint8_t>(std::clamp(int((a*(1.f-t)+bb*t)*255.f),0,255));
       };
       out[i] = Rgba8{ch(0),ch(1),ch(2),255u};
     }

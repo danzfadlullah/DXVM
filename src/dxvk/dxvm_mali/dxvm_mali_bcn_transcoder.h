@@ -29,7 +29,9 @@ namespace dxvk {
             VkDeviceSize          srcOffset,
             VkFormat              bcnFormat,
             const Rc<DxvkBuffer>& dst,
-            VkDeviceSize          dstOffset);
+            VkDeviceSize          dstOffset,
+            uint32_t              imageWidth,
+            uint32_t              imageHeight);
 
   private:
     bool m_useCpuFallback = true;
