@@ -5,7 +5,7 @@
 namespace dxvk {
 
   /**
-   * brief Clamp graphics pipeline state to what Mali GPUs support.
+   * \brief Clamp graphics pipeline state to what Mali GPUs support.
    *
    * Works on local copies of rasterization and color-blend state; the caller
    * repoints the pipeline create info at the returned copies.

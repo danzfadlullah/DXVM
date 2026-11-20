@@ -558,8 +558,6 @@ namespace dxvk {
     dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, maliState);
     if (maliState.hasBlend)
       info.pColorBlendState = &maliState.cbInfo;
-    if (info.pViewportState && maliState.viewportCount != info.pViewportState->viewportCount)
-      info.pViewportState = &maliState.vpInfo;
     info.pMultisampleState    = &msInfo;
     info.pDynamicState        = &dyInfo;
     info.basePipelineIndex    = -1;
@@ -1515,9 +1513,6 @@ namespace dxvk {
     dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, maliState);
     if (maliState.hasRaster)
       info.pRasterizationState = &maliState.rsInfo;
-    if (info.pViewportState && maliState.viewportCount != info.pViewportState->viewportCount)
-      info.pViewportState = &maliState.vpInfo;
-
     if (key.prState.tsInfo.patchControlPoints)
       info.pTessellationState     = &key.prState.tsInfo;
 
@@ -1527,7 +1522,8 @@ namespace dxvk {
        && m_device->features().vk13.dynamicRendering) {
         info.pNext = &key.foState.rtInfo;
       }
-      info.pViewportState         = &key.prState.vpInfo;
+      info.pViewportState         = m_device->adapter()->isMali() && maliState.viewportCount
+        ? &maliState.vpInfo : &key.prState.vpInfo;
       info.pMultisampleState      = &key.foState.msInfo;
       info.pDepthStencilState     = &key.fsState.dsInfo;
       info.pColorBlendState       = &key.foState.cbInfo;
