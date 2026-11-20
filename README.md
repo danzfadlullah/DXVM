@@ -1,184 +1,154 @@
-# DXVK
+# DXVM
 
-A Vulkan-based translation layer for Direct3D 8/9/10/11 which allows running 3D applications on Linux using Wine.
+**DirectX to Vulkan for Mali** — a fork of [DXVK 3.1.1](https://github.com/doitsujin/dxvk) optimized for ARM Mali GPUs, targeting **Mali-G615 MC2 (Valhall)**.
 
-For the current status of the project, please refer to the [project wiki](https://github.com/doitsujin/dxvk/wiki).
+DXVM ships Windows DLLs (`d3d8`, `d3d9`, `d3d10core`, `d3d11`, `dxgi`) for use under **Wine / Proton**. On a Mali GPU it works around features the driver lacks, transcodes BCn textures, applies Valhall-specific performance hints, and exposes a compact status HUD. On every other GPU, behavior is byte-for-byte equivalent to upstream DXVK.
 
-The most recent development builds can be found [here](https://github.com/doitsujin/dxvk/actions/workflows/artifacts.yml?query=branch%3Amaster).
+> **Status:** architecture cleanup complete. See [current limitations](#current-limitations) before use.
+> Development: [`dxvm-clean-arch`](https://github.com/danzfadlullah/DXVM/pull/1) · [design spec](docs/superpowers/specs/2026-11-20-dxvm-clean-architecture-design.md) · [implementation plan](docs/superpowers/plans/2026-11-20-dxvm-clean-architecture.md)
 
-Release builds can be found [here](https://github.com/doitsujin/dxvk/releases).
+---
 
-## How to use
-In order to install a DXVK package obtained from the [release](https://github.com/doitsujin/dxvk/releases) page into a given wine prefix, copy or symlink the DLLs into the following directories as follows, then open `winecfg` and manually add `native` DLL overrides for `d3d8`, `d3d9`, `d3d10core`, `d3d11` and `dxgi` under the Libraries tab.
+## Why DXVM?
 
-In a default Wine prefix that would be as follows:
-```
+Mali GPUs do not natively support several features Windows games expect, and have no hardware BCn (BC1–BC7) texture support. Upstream DXVK therefore either rejects the device or renders incorrectly on these GPUs. DXVM fixes this in one centralized module rather than scattered patches:
+
+| Problem | DXVM solution |
+|---|---|
+| Device rejected for missing `dualSrcBlend`, `fillModeNonSolid`, `multiViewport`, `textureCompressionBC` | Those flags are optional in the feature table; a Mali-only override table gates deltas and enables supported ARM/KHR extensions |
+| Games ship BC1–BC7 textures, Mali cannot sample them | BCn is remapped at texture creation to ASTC (GPU path) or RGBA8 (CPU path); original format is tracked per texture so uploads are never wrong-format |
+| Wireframe / dual-source blend / multiple viewports / logic ops unsupported | Graphics state is clamped to valid Mali state before pipeline creation |
+| HUD gives no Mali-specific information | Opt-in `DXVK_HUD=dxvm` compact two-column panel with a live status line |
+
+The target platform is Windows DLLs for Wine/Proton. Android/Termux/Winlator/Box64 is **not** a target of this fork.
+
+---
+
+## Installation
+
+Install exactly like DXVK — DXVM uses the same DLL names and exports.
+
+Copy the DLLs from `dist/win64` and `dist/win32` into your Wine prefix, then add native DLL overrides for `d3d8`, `d3d9`, `d3d10core`, `d3d11` and `dxgi` in `winecfg`:
+
+```bash
 export WINEPREFIX=/path/to/wineprefix
-cp x64/*.dll $WINEPREFIX/drive_c/windows/system32
-cp x32/*.dll $WINEPREFIX/drive_c/windows/syswow64
-winecfg
+cp dist/win64/*.dll "$WINEPREFIX/drive_c/windows/system32"
+cp dist/win32/*.dll "$WINEPREFIX/drive_c/windows/syswow64"
+winecfg   # Libraries tab -> add native overrides
 ```
 
-For a pure 32-bit Wine prefix (non default) the 32-bit DLLs instead go to the `system32` directory:
+For a pure 32-bit prefix, copy the 32-bit DLLs into `system32` instead. Enable `DXVK_HUD=dxvm` to confirm DXVM is active.
+
+DLL requirements per API are unchanged from DXVK:
+
+- `d3d8`: `d3d8.dll` + `d3d9.dll`
+- `d3d9`: `d3d9.dll`
+- `d3d10`: `d3d10core.dll` + `d3d11.dll` + `dxgi.dll`
+- `d3d11`: `d3d11.dll` + `dxgi.dll`
+
+To remove DXVM, delete the DLLs and overrides and run `wineboot -u`.
+
+**Online games:** replacing Direct3D libraries may be treated as cheating and can get an account banned. Use at your own risk.
+
+---
+
+## HUD
+
+In addition to all upstream `DXVK_HUD` options, DXVM adds:
+
+- **`dxvm`** — compact C1 panel: GPU name (`DXVM · G615`), architecture, FPS, frame time, GPU load, draw calls, memory, compiler activity, and a status line:
+
 ```
-export WINEPREFIX=/path/to/wineprefix
-cp x32/*.dll $WINEPREFIX/drive_c/windows/system32
-winecfg
-```
-
-Verify that your application uses DXVK instead of wined3d by enabling the HUD (see notes below).
-
-In order to remove DXVK from a prefix, remove the DLLs and DLL overrides, and run `wineboot -u` to restore the original DLL files.
-
-Tools such as Steam Play, Lutris, Bottles, Heroic Launcher, etc will automatically handle setup of dxvk on their own when enabled.
-
-#### DLL dependencies 
-Listed below are the DLL requirements for using DXVK with any single API.
-
-- d3d8: `d3d8.dll` and `d3d9.dll`
-- d3d9: `d3d9.dll`
-- d3d10: `d3d10core.dll`, `d3d11.dll` and `dxgi.dll`
-- d3d11: `d3d11.dll` and `dxgi.dll`
-
-### Notes on Vulkan drivers
-Before reporting an issue, please check the [Wiki](https://github.com/doitsujin/dxvk/wiki/Driver-support) page on the current driver status and make sure you run a recent enough driver version for your hardware.
-
-### Online multi-player games
-Manipulation of Direct3D libraries in multi-player games may be considered cheating and can get your account **banned**. This may also apply to single-player games with an embedded or dedicated multiplayer portion. **Use at your own risk.**
-
-### HUD
-The `DXVK_HUD` environment variable controls a HUD which can display the framerate and some stat counters. It accepts a comma-separated list of the following options:
-- `devinfo`: Displays the name of the GPU and the driver version.
-- `fps`: Shows the current frame rate.
-- `frametimes`: Shows a frame time graph.
-- `submissions`: Shows the number of command buffers submitted per frame.
-- `drawcalls`: Shows the number of draw calls and render passes per frame.
-- `pipelines`: Shows the total number of graphics and compute pipelines.
-- `descriptors`: Shows the number of descriptor pools and descriptor sets.
-- `memory`: Shows the amount of device memory allocated and used.
-- `allocations`: Shows detailed memory chunk suballocation info.
-- `gpuload`: Shows estimated GPU load. May be inaccurate.
-- `version`: Shows DXVK version.
-- `api`: Shows the D3D feature level used by the application.
-- `cs`: Shows worker thread statistics.
-- `compiler`: Shows shader compiler activity
-- `samplers`: Shows the current number of sampler pairs used *[D3D9 Only]*
-- `swvp`: Shows the vertex processing mode and the current number of software vertex processing shaders *[D3D9 Only]*
-- `scale=x`: Scales the HUD by a factor of `x` (e.g. `1.5`)
-- `opacity=y`: Adjusts the HUD opacity by a factor of `y` (e.g. `0.5`, `1.0` being fully opaque).
-
-Additionally, `DXVK_HUD=1` has the same effect as `DXVK_HUD=devinfo,fps`, and `DXVK_HUD=full` enables all available HUD elements.
-
-### Logs
-When used with Wine, DXVK will print log messages to `stderr`. Additionally, standalone log files can optionally be generated by setting the `DXVK_LOG_PATH` variable, where log files in the given directory will be called `app_d3d11.log`, `app_dxgi.log` etc., where `app` is the name of the game executable.
-
-On Windows, log files will be created in the game's working directory by default, which is usually next to the game executable.
-
-### Device filter
-Some applications do not provide a method to select a different GPU. In that case, DXVK can be forced to use a given device:
-- `DXVK_FILTER_DEVICE_NAME="Device Name"` Selects devices with a matching Vulkan device name, which can be retrieved with tools such as `vulkaninfo`. Matches on substrings, so "VEGA" or "AMD RADV VEGA10" is supported if the full device name is "AMD RADV VEGA10 (LLVM 9.0.0)", for example. If the substring matches more than one device, the first device matched will be used.
-- `DXVK_FILTER_DEVICE_UUID="00000000000000000000000000000001"` Selects a device by matching its Vulkan device UUID, which can also be retrieved using tools such as `vulkaninfo`. The UUID must be a 32-character hexadecimal string with no dashes. This method provides more precise selection, especially when using multiple identical GPUs.
-
-**Note:** If the device filter is configured incorrectly, it may filter out all devices and applications will be unable to create a D3D device.
-
-### Debugging
-The following environment variables can be used for **debugging** purposes.
-- `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation` Enables Vulkan debug layers. Highly recommended for troubleshooting rendering issues and driver crashes. Requires the Vulkan SDK to be installed on the host system.
-- `DXVK_LOG_LEVEL=none|error|warn|info|debug` Controls message logging.
-- `DXVK_LOG_PATH=/some/directory` Changes path where log files are stored. Set to `none` to disable log file creation entirely, without disabling logging.
-- `DXVK_DEBUG=...` Enables one of various debugging modes:
-  - `capture`: Default when used with certain tools. Enables dxvk-internal debug names and debug markers for render passes, shaders, etc.
-  - `hang`: Detects GPU hangs or driver crashes resulting in `VK_ERROR_DEVICE_LOST` and logs failing command(s).
-  - `markers`: Uses `VK_EXT_debug_utils` to forward applocation-provided resource names and debug markers to Vulkan.
-  - `validation`: Enables validation debug callback. Must also set `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation` on Linux.
-- `DXVK_CONFIG_FILE=/xxx/dxvk.conf` Sets path to the configuration file.
-- `DXVK_CONFIG="dxgi.hideAmdGpu = True; dxgi.syncInterval = 0"` Can be used to set config variables through the environment instead of a configuration file using the same syntax. `;` is used as a seperator.
-- `DXVK_SHADER_CACHE=0`: Disables the internal shader cache.
-- `DXVK_SHADER_CACHE_PATH=/some/directory`: Path to internal shader cache files. By default, this will use `%LOCALAPPDATA%/dxvk` in a Windows
-  or Wine environment, and `$HOME/.cache` or `$XDG_CACHE_HOME` in a native Linux environment.
-
-### Graphics Pipeline Library
-On drivers which support `VK_EXT_graphics_pipeline_library` Vulkan shaders will be compiled at the time the game loads its D3D shaders, rather than at draw time. This reduces or eliminates shader compile stutter in many games when compared to the previous system.
-
-In games that load their shaders during loading screens or in the menu, this can lead to prolonged periods of very high CPU utilization, especially on weaker CPUs. For affected games it is recommended to wait for shader compilation to finish before starting the game to avoid stutter and low performance. Shader compiler activity can be monitored with `DXVK_HUD=compiler`.
-
-**Note:** Games which only load their D3D shaders at draw time (e.g. most Unreal Engine games) will still exhibit some stutter, although it should still be less severe than without this feature.
-
-## Build instructions
-
-In order to pull in all submodules that are needed for building, clone the repository using the following command:
-```
-git clone --recursive https://github.com/doitsujin/dxvk.git
+BCn→ASTC:CPU · DynR:ON · Sync2:ON
 ```
 
-### Requirements:
-- [wine 10.0](https://www.winehq.org/) or newer
-- [Meson](https://mesonbuild.com/) build system (at least version 0.58)
-- [Mingw-w64](https://www.mingw-w64.org) compiler and headers (at least version 10.0)
-- [glslang](https://github.com/KhronosGroup/glslang) compiler
+`BCn→ASTC` shows `GPU` or `CPU` depending on the transcode path; `DynR` and `Sync2` report whether dynamic rendering and synchronization2 are active. Enable with `DXVK_HUD=dxvm`, optionally combined with other items, e.g. `DXVK_HUD=dxvm,fps`.
 
-### Building DLLs
+---
 
-#### The simple way
-Inside the DXVK directory, run:
+## Configuration
+
+DXVM keeps all existing `dxvk.*` options. Mali-specific options are parsed once by `DxvmMaliConfig`:
+
+| Option | Default | Purpose |
+|---|---|---|
+| `dxvk.enableBcnTranscoding` | `true` | Remap/transcode BCn textures on Mali |
+| `dxvk.enableDynamicRendering` | `true` | Prefer `VK_KHR_dynamic_rendering` on Mali |
+| `dxvk.enableFP16Shaders` | `false` | Allow 16-bit arithmetic (auto-enabled on Mali when supported) |
+| `dxvk.enableINT8Shaders` | `false` | Allow INT8 arithmetic (auto-enabled on Mali when supported) |
+| `dxvk.enableDescriptorIndexing` | `false` | Descriptor indexing hint |
+| `dxvk.enableBufferDeviceAddress` | `false` | Buffer device address hint |
+| `dxvk.enableShaderTileImage` | `false` | `VK_EXT_shader_tile_image` |
+| `dxvk.enableARMBuiltins` | `false` | `VK_ARM_shader_core_builtins` |
+| `dxvk.enableSynchronization2` | `false` | `VK_KHR_synchronization2` |
+| `dxvk.enableTimelineSemaphore` | `false` | `VK_KHR_timeline_semaphore` |
+| `dxvk.preferCachedMemory` | `auto` | Prefer cached memory on unified-memory systems |
+| `dxvk.maxMemoryBudget` | `0` | Memory budget in MB (reporting only; not enforced) |
+
+All Mali hooks are gated on `isMali()`, so these options have no effect on other GPUs.
+
+---
+
+## Building
+
+Requirements (same as DXVK): Meson ≥ 0.58, glslang, and a mingw-w64 cross compiler with POSIX threads.
+
+```bash
+git clone --recursive https://github.com/danzfadlullah/DXVM.git
+cd DXVM
+
+# 64-bit DLLs
+meson setup --cross-file build-win64.txt --buildtype release build-win64
+meson compile -C build-win64
+
+# 32-bit DLLs
+meson setup --cross-file build-win32.txt --buildtype release build-win32
+meson compile -C build-win32
 ```
-./package-release.sh master /your/target/directory --no-package
+
+Finished DLLs are produced under `build-win*/src/<api>/`. Copy them to `dist/win64` / `dist/win32` for installation.
+
+Host-side unit tests for the Mali module do not need Windows:
+
+```bash
+bash tests/dxvm/run.sh all
 ```
 
-This will create a folder `dxvk-master` in `/your/target/directory`, which contains both 32-bit and 64-bit versions of DXVK, which can be set up in the same way as the release versions as noted above.
+Ten tests cover config, context, feature overrides, format remap, BCn decoding and subresource layout, perf hints, state emulation, HUD text, and vendor reporting. Build verification also checks exported symbols (`D3D11CreateDevice`, `CreateDXGIFactory1`) for both architectures.
 
-In order to preserve the build directories for development, pass `--dev-build` to the script. This option implies `--no-package`. After making changes to the source code, you can then do the following to rebuild DXVK:
+If mingw-w64 lacks POSIX threads you may see `std::cv_status` errors. On Debian/Ubuntu, select the `posix` alternative for the four `*-mingw32-gcc/g++` compilers with `update-alternatives --config`.
+
+---
+
+## Project layout
+
 ```
-# change to build.32 for 32-bit
-cd /your/target/directory/build.64
-meson install --skip-subprojects
+src/dxvk/dxvm_mali/     All Mali behavior (config, features, hints,
+                        format policy, BCn transcoder + decoder,
+                        state emulation, vendor helper, extension provider)
+src/dxvk/hud/           C1 HUD panel and DXVM status line
+tests/dxvm/             Host-side unit tests + Windows stubs
+docs/superpowers/       Design spec and implementation plan
 ```
 
-#### Compiling manually
-```
-# 64-bit build. For 32-bit builds, replace
-# build-win64.txt with build-win32.txt
-meson setup --cross-file build-win64.txt --buildtype release --prefix /your/dxvk/directory build.w64
-cd build.w64
-ninja install
-```
+Upstream DXVK files contain only the hook sites that call into the module.
 
-The D3D8, D3D9, D3D10, D3D11 and DXGI DLLs will be located in `/your/dxvk/directory/bin`.
+---
 
-### Build troubleshooting
-DXVK requires threading support from your mingw-w64 build environment. If you
-are missing this, you may see "error: ‘std::cv_status’ has not been declared"
-or similar threading related errors.
+## Current limitations
 
-On Debian and Ubuntu, this can be resolved by using the posix alternate, which
-supports threading. For example, choose the posix alternate from these
-commands:
-```
-update-alternatives --config x86_64-w64-mingw32-gcc
-update-alternatives --config x86_64-w64-mingw32-g++
-update-alternatives --config i686-w64-mingw32-gcc
-update-alternatives --config i686-w64-mingw32-g++
-```
-For non debian based distros, make sure that your mingw-w64-gcc cross compiler 
-does have `--enable-threads=posix` enabled during configure. If your distro does
-ship its mingw-w64-gcc binary with `--enable-threads=win32` you might have to
-recompile locally or open a bug at your distro's bugtracker to ask for it. 
+These are deliberate and documented, not bugs:
 
-# DXVK Native
+- **BCn GPU dispatch is deferred.** The CPU decoder is the active path, so the HUD always reports `BCn→ASTC:CPU`. The ASTC remap path exists but is not driven by a compute pipeline yet.
+- **BC6H/BC7 CPU decode is approximate**; BC4/BC5 SNORM data is treated as UNORM. No texture cache is implemented.
+- **Memory budget** is configuration-only and not enforced.
+- **Reduced fidelity is accepted** for emulated wireframe, dual-source blending, and multiple viewports — correctness over visual fidelity.
+- **Android/Termux/Winlator/Box64** is no longer a target.
 
-DXVK Native is a version of DXVK which allows it to be used natively without Wine.
+Non-Mali behavior remains byte-for-byte equivalent to upstream DXVK.
 
-This is primarily useful for game and application ports to either avoid having to write another rendering backend, or to help with port bringup during development.
+---
 
-[Release builds](https://github.com/doitsujin/dxvk/releases) are built using the Steam Runtime.
+## Credits & license
 
-### How does it work?
-
-DXVK Native replaces certain Windows-isms with a platform and framework-agnostic replacement, for example, `HWND`s can become `SDL_Window*`s, etc.
-All it takes to do that is to add another WSI backend.
-
-**Note:** DXVK Native requires a backend to be explicitly set via the `DXVK_WSI_DRIVER` environment variable. The current built-in options are `SDL3`, `SDL2`, and `GLFW`.
-
-DXVK Native comes with a slim set of Windows header definitions required for D3D9/11 and the MinGW headers for D3D9/11.
-In most cases, it will end up being plug and play with your renderer, but there may be certain teething issues such as:
-- `__uuidof(type)` is supported, but `__uuidof(variable)` is not supported. Use `__uuidof_var(variable)` instead.
+Based on [DXVK](https://github.com/doitsujin/dxvk) by Philip Rebohle, Joshua Ashton, Robin Kertels, Jeffrey Ellison and contributors. See [LICENSE](LICENSE) for the upstream license (zlib).
