@@ -15,6 +15,14 @@ namespace dxvmt {
    */
   std::string formatDeviceLine(unsigned featureLevel);
 
+  /** \brief D3D9 prints no feature level: "device created" or a failure line */
+  std::string formatDeviceLine9();
+  std::string formatDeviceLine9Failed();
+
+  /** \brief D3D10 prints its level textually ("10_1"), not in hex */
+  std::string formatDeviceLine10(unsigned featureLevel);
+  std::string formatDeviceLine10Failed();
+
 #ifdef _WIN32
 
   struct D3D11Context {

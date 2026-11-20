@@ -18,6 +18,9 @@ namespace dxvmt {
   void registerMsaaScenes(Registry& registry);
   void registerStateScenes(Registry& registry);
   void registerTextureScenes(Registry& registry);
+  void registerRemainingScenes(Registry& registry);
+  void registerD3D9Scenes(Registry& registry);
+  void registerD3D10Scenes(Registry& registry);
 
 }
 
@@ -107,6 +110,9 @@ int main(int argc, char** argv) {
   registerMsaaScenes(registry);
   registerStateScenes(registry);
   registerTextureScenes(registry);
+  registerRemainingScenes(registry);
+  registerD3D9Scenes(registry);
+  registerD3D10Scenes(registry);
 
   // Child mode must run before anything else: it exists to be isolated.
   std::string childScene;

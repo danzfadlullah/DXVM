@@ -27,6 +27,32 @@ namespace dxvmt {
     return buf;
   }
 
+  std::string formatDeviceLine9() {
+    return "device created";
+  }
+
+  std::string formatDeviceLine9Failed() {
+    return "device creation failed";
+  }
+
+  std::string formatDeviceLine10(unsigned featureLevel) {
+    // D3D10 names its levels textually, matching DXML's reference output.
+    switch (featureLevel) {
+      case 0xa100u: return "device created, feature level 10_1";
+      case 0xa000u: return "device created, feature level 10_0";
+      case 0xb000u: return "device created, feature level 11_0";
+      default:      return "device created, feature level 0x"
+        + std::string(1, "0123456789abcdef"[(featureLevel >> 12) & 0xFu])
+        + std::string(1, "0123456789abcdef"[(featureLevel >> 8) & 0xFu])
+        + std::string(1, "0123456789abcdef"[(featureLevel >> 4) & 0xFu])
+        + std::string(1, "0123456789abcdef"[featureLevel & 0xFu]);
+    }
+  }
+
+  std::string formatDeviceLine10Failed() {
+    return "device creation failed";
+  }
+
 #ifdef _WIN32
 
   namespace {

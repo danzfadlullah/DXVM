@@ -24,6 +24,13 @@ int main() {
   // A device that was never created must never look like a success line.
   CHECK(formatDeviceLine(0u) == "device creation failed, feature level 0x0000");
 
+  // D3D9 and D3D10 print their feature level differently from D3D11.
+  CHECK(formatDeviceLine9() == "device created");
+  CHECK(formatDeviceLine9Failed() == "device creation failed");
+  CHECK(formatDeviceLine10(0xa100u) == "device created, feature level 10_1");
+  CHECK(formatDeviceLine10(0xa000u) == "device created, feature level 10_0");
+  CHECK(formatDeviceLine10Failed() == "device creation failed");
+
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);
     return 1;
