@@ -1,5 +1,4 @@
 #include "dxvk_format.h"
-#include "dxvm_mali/dxvm_mali_format_policy.h"
 #include "dxvk_adapter.h"
 
 namespace dxvk {
@@ -644,29 +643,6 @@ namespace dxvk {
    * \param [in] format Format to check
    * \returns \c true if the format is a BCn format
    */
-  bool isBcnFormat(VkFormat format) {
-    switch (format) {
-      case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
-      case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
-      case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
-      case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
-      case VK_FORMAT_BC2_UNORM_BLOCK:
-      case VK_FORMAT_BC2_SRGB_BLOCK:
-      case VK_FORMAT_BC3_UNORM_BLOCK:
-      case VK_FORMAT_BC3_SRGB_BLOCK:
-      case VK_FORMAT_BC4_UNORM_BLOCK:
-      case VK_FORMAT_BC4_SNORM_BLOCK:
-      case VK_FORMAT_BC5_UNORM_BLOCK:
-      case VK_FORMAT_BC5_SNORM_BLOCK:
-      case VK_FORMAT_BC6H_UFLOAT_BLOCK:
-      case VK_FORMAT_BC6H_SFLOAT_BLOCK:
-      case VK_FORMAT_BC7_UNORM_BLOCK:
-      case VK_FORMAT_BC7_SRGB_BLOCK:
-        return true;
-      default:
-        return false;
-    }
-  }
 
   /**
    * \brief Gets the recommended ASTC format for transcoding a BCn format
@@ -677,9 +653,6 @@ namespace dxvk {
    * \param [in] format BCn format to transcode
    * \returns Recommended ASTC format, or VK_FORMAT_UNDEFINED if not a BCn format
    */
-  VkFormat getBcnTranscodeFormat(VkFormat format) {
-    return dxvmMaliRemapFormat(true, false, format);
-  }
 
   /**
    * \brief Checks if BCn transcoding is needed for the given format on this device
@@ -689,9 +662,5 @@ namespace dxvk {
    * \param [in] options Device options (for enableBcnTranscoding flag)
    * \returns \c true if BCn transcoding should be used
    */
-  bool needsBcnTranscoding(VkFormat format, const DxvkAdapter* adapter, const DxvkOptions& options) {
-    return options.enableBcnTranscoding && adapter && adapter->isMali()
-        && dxvmIsBcnFormat(format);
-  }
 
 }

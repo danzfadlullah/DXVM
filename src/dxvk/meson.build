@@ -60,7 +60,7 @@ dxvk_src = [
   'dxvk_image.cpp',
   'dxvk_implicit_resolve.cpp',
   'dxvk_instance.cpp',
-  'dxvk_mali_extensions.cpp',
+  'dxvm_mali/dxvm_mali_extension_provider.cpp',
   'dxvm_mali/dxvm_mali_config.cpp',
   'dxvm_mali/dxvm_mali_context.cpp',
   'dxvm_mali/dxvm_mali_features.cpp',

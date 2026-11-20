@@ -13,13 +13,13 @@ namespace dxvk {
    * - VK_ARM_rasterization_order_attachment_access
    * - VK_KHR_fragment_shading_rate
    */
-  class DxvkMaliExtensionProvider : public DxvkExtensionProvider {
+  class DxvmMaliExtensionProvider : public DxvkExtensionProvider {
 
   public:
 
-    static DxvkMaliExtensionProvider s_instance;
+    static DxvmMaliExtensionProvider s_instance;
 
-    DxvkMaliExtensionProvider(const DxvkInstance* instance = nullptr);
+    DxvmMaliExtensionProvider(const DxvkInstance* instance = nullptr);
 
     std::string_view getName() override {
       return "Mali ARM Extensions";

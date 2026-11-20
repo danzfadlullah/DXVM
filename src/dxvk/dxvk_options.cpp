@@ -37,8 +37,6 @@ namespace dxvk {
     maxMemoryBudget = VkDeviceSize(std::max(budget, 0)) << 20u;
 
     // Mali-specific options (defaults are conservative; overridden in determineDeviceHints for Mali)
-    enableDynamicRendering       = config.getOption<bool>("dxvk.enableDynamicRendering", false);
-    enableFP16Shaders            = config.getOption<bool>("dxvk.enableFP16Shaders", false);
     enableINT8Shaders            = config.getOption<bool>("dxvk.enableINT8Shaders", false);
     enableDescriptorIndexing     = config.getOption<bool>("dxvk.enableDescriptorIndexing", false);
     enableBufferDeviceAddress    = config.getOption<bool>("dxvk.enableBufferDeviceAddress", false);
@@ -48,7 +46,6 @@ namespace dxvk {
     enableTimelineSemaphore      = config.getOption<bool>("dxvk.enableTimelineSemaphore", false);
     preferCachedMemory           = config.getOption<Tristate>("dxvk.preferCachedMemory", Tristate::Auto);
     maxMemoryBudgetMB            = config.getOption<int32_t>("dxvk.maxMemoryBudget", 0);
-    enableBcnTranscoding         = config.getOption<bool>("dxvk.enableBcnTranscoding", true);
   }
 
 }

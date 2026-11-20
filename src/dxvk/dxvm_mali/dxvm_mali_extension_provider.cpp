@@ -1,16 +1,16 @@
-#include "dxvk_mali_extensions.h"
+#include "dxvm_mali_extension_provider.h"
 #include "dxvk_instance.h"
 #include "dxvk_adapter.h"
 
 namespace dxvk {
 
-  DxvkMaliExtensionProvider DxvkMaliExtensionProvider::s_instance = DxvkMaliExtensionProvider();
+  DxvmMaliExtensionProvider DxvmMaliExtensionProvider::s_instance = DxvmMaliExtensionProvider();
 
-  DxvkMaliExtensionProvider::DxvkMaliExtensionProvider(const DxvkInstance* instance)
+  DxvmMaliExtensionProvider::DxvmMaliExtensionProvider(const DxvkInstance* instance)
   : m_instance(instance) {
   }
 
-  DxvkExtensionList DxvkMaliExtensionProvider::getInstanceExtensions() {
+  DxvkExtensionList DxvmMaliExtensionProvider::getInstanceExtensions() {
     DxvkExtensionList extList;
 
     // Instance extensions for Mali ARM
@@ -19,7 +19,7 @@ namespace dxvk {
     return extList;
   }
 
-  DxvkExtensionList DxvkMaliExtensionProvider::getDeviceExtensions(uint32_t adapterId) {
+  DxvkExtensionList DxvmMaliExtensionProvider::getDeviceExtensions(uint32_t adapterId) {
     DxvkExtensionList extList;
 
     if (adapterId >= m_numAdapters)
@@ -45,11 +45,11 @@ namespace dxvk {
     return extList;
   }
 
-  void DxvkMaliExtensionProvider::initInstanceExtensions() {
+  void DxvmMaliExtensionProvider::initInstanceExtensions() {
     // No special instance extensions needed for ARM Mali
   }
 
-  void DxvkMaliExtensionProvider::initDeviceExtensions(const DxvkInstance* instance) {
+  void DxvmMaliExtensionProvider::initDeviceExtensions(const DxvkInstance* instance) {
     m_instance = instance;
     m_numAdapters = 0;
 

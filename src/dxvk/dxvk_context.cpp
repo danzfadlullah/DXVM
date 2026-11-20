@@ -6076,7 +6076,7 @@ namespace dxvk {
     // format is already ASTC/RGBA8. Gate on the remembered original BCn format.
     VkFormat bcnFormat = image->info().bcnSourceFormat;
     if (allowBcnTranscode && dxvmIsBcnFormat(bcnFormat)
-     && m_device->adapter()->isMali() && m_device->config().enableBcnTranscoding) {
+     && m_device->adapter()->isMali()) {
       uploadImageBcnTranscode(image, source, sourceOffset, subresourceAlignment);
       return;
     }

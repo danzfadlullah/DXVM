@@ -5,7 +5,7 @@
 #include "dxvk_openvr.h"
 #include "dxvk_openxr.h"
 #include "dxvk_platform_exts.h"
-#include "dxvk_mali_extensions.h"
+#include "dxvm_mali/dxvm_mali_extension_provider.h"
 
 #include "../wsi/wsi_platform.h"
 
@@ -42,7 +42,7 @@ namespace dxvk {
 
     // Initialize extension providers
     m_extProviders.push_back(&DxvkPlatformExts::s_instance);
-    m_extProviders.push_back(&DxvkMaliExtensionProvider::s_instance);
+    m_extProviders.push_back(&DxvmMaliExtensionProvider::s_instance);
 #ifdef _WIN32
     m_extProviders.push_back(&VrInstance::s_instance);
     m_extProviders.push_back(&DxvkXrProvider::s_instance);
