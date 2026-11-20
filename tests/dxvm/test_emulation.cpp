@@ -17,22 +17,27 @@ int main() {
   cb.logicOpEnable = VK_TRUE;
   cb.attachmentCount = 1;
   cb.pAttachments = &att;
+  VkViewport viewport{};
+  VkPipelineViewportStateCreateInfo vs{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+  vs.viewportCount = 4;
+  vs.pViewports = &viewport;
   VkGraphicsPipelineCreateInfo gp{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
   gp.pRasterizationState = &rs;
   gp.pColorBlendState = &cb;
-  uint32_t count = 1, vp = 4;
+  gp.pViewportState = &vs;
 
-  // Non-Mali: no changes.
-  dxvmMaliEmulateGraphicsState(false, gp, &att, count, vp);
-  CHECK(rs.polygonMode == VK_POLYGON_MODE_LINE);
-  CHECK(vp == 4);
+  DxvmMaliEmulatedState out;
 
-  // Mali: clamp everything.
-  dxvmMaliEmulateGraphicsState(true, gp, &att, count, vp);
-  CHECK(rs.polygonMode == VK_POLYGON_MODE_FILL);
-  CHECK(att.srcColorBlendFactor == VK_BLEND_FACTOR_SRC_ALPHA);
-  CHECK(vp == 1);
-  CHECK(cb.logicOpEnable == VK_FALSE);
+  // Non-Mali: no changes captured.
+  dxvmMaliEmulateGraphicsState(false, gp, out);
+  CHECK(!out.hasRaster && !out.hasBlend);
+
+  // Mali: clamped local copies.
+  dxvmMaliEmulateGraphicsState(true, gp, out);
+  CHECK(out.hasRaster && out.rsInfo.polygonMode == VK_POLYGON_MODE_FILL);
+  CHECK(out.cbInfo.logicOpEnable == VK_FALSE);
+  CHECK(out.cbInfo.pAttachments[0].srcColorBlendFactor == VK_BLEND_FACTOR_SRC_ALPHA);
+  CHECK(out.viewportCount == 1);
 
   if (failures) { std::fprintf(stderr, "%d check(s) failed\n", failures); return 1; }
   std::printf("test_emulation: OK\n");

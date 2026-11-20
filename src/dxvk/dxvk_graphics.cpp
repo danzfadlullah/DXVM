@@ -554,11 +554,10 @@ namespace dxvk {
 
     VkGraphicsPipelineCreateInfo info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, &libInfo };
     info.pColorBlendState     = &state.cbInfo;
-    uint32_t maliCount = state.cbInfo.attachmentCount;
-    uint32_t maliVp = 1u;
-    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info,
-      const_cast<VkPipelineColorBlendAttachmentState*>(state.cbInfo.pAttachments),
-      maliCount, maliVp);
+    DxvmMaliEmulatedState maliState;
+    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, maliState);
+    if (maliState.hasBlend)
+      info.pColorBlendState = &maliState.cbInfo;
     info.pMultisampleState    = &msInfo;
     info.pDynamicState        = &dyInfo;
     info.basePipelineIndex    = -1;
@@ -1510,9 +1509,10 @@ namespace dxvk {
     info.layout                   = layout->getPipelineLayout();
     info.basePipelineIndex        = -1;
 
-    uint32_t maliViewportCount = 1u;
-    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, nullptr,
-      maliViewportCount, maliViewportCount);
+    DxvmMaliEmulatedState maliState;
+    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, maliState);
+    if (maliState.hasRaster)
+      info.pRasterizationState = &maliState.rsInfo;
 
     if (key.prState.tsInfo.patchControlPoints)
       info.pTessellationState     = &key.prState.tsInfo;
