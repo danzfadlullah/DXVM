@@ -1,6 +1,7 @@
 #include "dxvm_mali_bcn_transcoder.h"
 #include "dxvm_mali_format_policy.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace dxvk {
@@ -38,10 +39,14 @@ namespace dxvk {
       return VK_ERROR_MEMORY_MAP_FAILED;
 
     VkDeviceSize blockSize = info->elementSize;
-    VkDeviceSize blocks = available / blockSize;
+    uint32_t blocksX = (imageWidth + 3u) / 4u;
+    uint32_t blocksY = (imageHeight + 3u) / 4u;
+    // Only decode this subresource's own blocks, never the rest of the
+    // source buffer (which holds subsequent mips/layers).
+    VkDeviceSize blocks = std::min<VkDeviceSize>(
+      available / blockSize, VkDeviceSize(blocksX) * blocksY);
     Rgba8 pixels[16];
     uint8_t* out = static_cast<uint8_t*>(dstPtr);
-    uint32_t blocksX = (imageWidth + 3u) / 4u;
 
     for (VkDeviceSize b = 0; b < blocks; b++) {
       const uint8_t* block = static_cast<const uint8_t*>(srcPtr) + b * blockSize;
