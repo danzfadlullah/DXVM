@@ -16,9 +16,11 @@ dxvm_harness_src = files(
   'src/SelfTestScenes.cpp',
   'src/Device.cpp',
   'src/scenes/Msaa.cpp',
+  'src/scenes/Bcn.cpp',
   'src/scenes/DeviceScenes.cpp',
   'src/scenes/MsaaScenes.cpp',
   'src/scenes/StateScenes.cpp',
+  'src/scenes/TextureScenes.cpp',
   'src/main.cpp',
 )
 

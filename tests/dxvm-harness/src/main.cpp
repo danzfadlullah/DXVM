@@ -17,6 +17,7 @@ namespace dxvmt {
   void registerDeviceScenes(Registry& registry);
   void registerMsaaScenes(Registry& registry);
   void registerStateScenes(Registry& registry);
+  void registerTextureScenes(Registry& registry);
 
 }
 
@@ -105,6 +106,7 @@ int main(int argc, char** argv) {
   registerDeviceScenes(registry);
   registerMsaaScenes(registry);
   registerStateScenes(registry);
+  registerTextureScenes(registry);
 
   // Child mode must run before anything else: it exists to be isolated.
   std::string childScene;
