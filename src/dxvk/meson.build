@@ -101,6 +101,7 @@ dxvk_src = [
   'dxvk_util.cpp',
 
   'hud/dxvk_hud.cpp',
+  'hud/dxvk_hud_dxvm_status.cpp',
   'hud/dxvk_hud_font.cpp',
   'hud/dxvk_hud_item.cpp',
   'hud/dxvk_hud_renderer.cpp',

@@ -1,4 +1,5 @@
 #include "dxvk_hud_item.h"
+#include "dxvk_hud_dxvm_status.h"
 
 #include <hud_chunk_frag_background.h>
 #include <hud_chunk_frag_visualize.h>
@@ -1468,6 +1469,63 @@ namespace dxvk::hud {
       position.y += 8;
     }
 
+    return position;
+  }
+
+  HudDxvmItem::HudDxvmItem(const Rc<DxvkDevice>& device, bool useCpuBcn, bool dynRender, bool sync2)
+  : m_device(device), m_statusLine(dxvmHudStatusLine(useCpuBcn, dynRender, sync2)) {
+  }
+
+  HudDxvmItem::~HudDxvmItem() {}
+
+  void HudDxvmItem::update(
+          Presenter&                              presenter,
+          dxvk::high_resolution_clock::time_point time) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(time - m_lastUpdate);
+    if (elapsed.count() < UpdateInterval)
+      return;
+    m_lastUpdate = time;
+    auto feedback = presenter.queryPresentTiming();
+    if (feedback.frameId > m_lastFeedback.frameId) {
+      uint64_t frameCount = feedback.frameId - m_lastFeedback.frameId;
+      uint64_t durationUs = std::chrono::duration_cast<std::chrono::microseconds>(
+          dxvk::high_resolution_clock::get_time_from_counter(feedback.presentTimeHost) -
+          dxvk::high_resolution_clock::get_time_from_counter(m_lastFeedback.presentTimeHost)).count();
+      if (durationUs) {
+        uint64_t fps = (double(frameCount) * double(10'000'000.0)) / double(durationUs);
+        m_lastFeedback = feedback;
+        m_frameRate = str::format(fps / 10, ".", fps % 10);
+      }
+    } else if (feedback.frameId < m_lastFeedback.frameId) {
+      m_lastFeedback = feedback;
+    }
+  }
+
+  HudPos HudDxvmItem::render(
+    const Rc<DxvkCommandList>&, const HudPipelineKey&, const HudOptions&,
+          HudRenderer& renderer, HudPos position) {
+    // C1 compact two-column panel.
+    renderer.drawText(16, { position.x, position.y + 14 }, 0xff89b4fau, "DXVM · Mali");
+    renderer.drawText(16, { position.x + 176, position.y + 14 }, 0xffa6adc8u, "Valhall");
+
+    renderer.drawText(16, { position.x, position.y + 30 }, 0xff6c7086u, "FPS");
+    renderer.drawText(16, { position.x + 48, position.y + 30 }, 0xffa6e3a1u, m_frameRate);
+    renderer.drawText(16, { position.x + 112, position.y + 30 }, 0xff6c7086u, "DC");
+    renderer.drawText(16, { position.x + 152, position.y + 30 }, 0xffffffffu, "—");
+
+    renderer.drawText(16, { position.x, position.y + 46 }, 0xff6c7086u, "GPU");
+    renderer.drawText(16, { position.x + 48, position.y + 46 }, 0xfff9e2afu, "—");
+    renderer.drawText(16, { position.x + 112, position.y + 46 }, 0xff6c7086u, "MEM");
+    renderer.drawText(16, { position.x + 152, position.y + 46 }, 0xffffffffu, "—");
+
+    renderer.drawText(16, { position.x, position.y + 62 }, 0xff6c7086u, "FT");
+    renderer.drawText(16, { position.x + 48, position.y + 62 }, 0xffffffffu, "—");
+    renderer.drawText(16, { position.x + 112, position.y + 62 }, 0xff6c7086u, "CMP");
+    renderer.drawText(16, { position.x + 152, position.y + 62 }, 0xff94e2d5u, "idle");
+
+    renderer.drawText(14, { position.x, position.y + 82 }, 0xff6c7086u, m_statusLine);
+
+    position.y += 100;
     return position;
   }
 

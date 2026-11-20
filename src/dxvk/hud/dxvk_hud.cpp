@@ -28,6 +28,12 @@ namespace dxvk::hud {
     addItem<HudCsThreadItem>("cs", -1, device);
     addItem<HudGpuLoadItem>("gpuload", -1, device);
     addItem<HudCompilerActivityItem>("compiler", -1, device);
+
+    // DXVM C1 compact panel (opt-in via DXVK_HUD=dxvm)
+    addItem<HudDxvmItem>("dxvm", -1, m_device,
+      m_device->bcnTranscoder().useCpuFallback(),
+      m_device->config().enableDynamicRendering,
+      m_device->features().vk13.synchronization2);
   }
 
 

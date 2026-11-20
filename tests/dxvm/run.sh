@@ -40,6 +40,7 @@ MODULE_SOURCES=(
   "$SRC_DIR/dxvk/dxvm_mali/bcndecode/bcn_decode.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_state_emulation.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_vendor.cpp"
+  "$SRC_DIR/dxvk/hud/dxvk_hud_dxvm_status.cpp"
 )
 CONFIG_SOURCE="$SRC_DIR/util/config/config.cpp"
 

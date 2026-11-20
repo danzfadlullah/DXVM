@@ -789,4 +789,34 @@ namespace dxvk::hud {
 
   };
 
+
+  /**
+   * \brief DXVM C1 compact panel
+   *
+   * Two-column Mali performance panel with a DXVM optimization status line.
+   */
+  class HudDxvmItem : public HudItem {
+    constexpr static int64_t UpdateInterval = 500'000;
+  public:
+
+    HudDxvmItem(const Rc<DxvkDevice>& device, bool useCpuBcn, bool dynRender, bool sync2);
+    ~HudDxvmItem();
+
+    void update(Presenter& presenter, dxvk::high_resolution_clock::time_point time);
+
+    HudPos render(
+      const Rc<DxvkCommandList>& ctx,
+      const HudPipelineKey&     key,
+      const HudOptions&         options,
+            HudRenderer&        renderer,
+            HudPos              position);
+
+  private:
+    Rc<DxvkDevice> m_device;
+    PresenterTimingFeedback m_lastFeedback = {};
+    dxvk::high_resolution_clock::time_point m_lastUpdate = dxvk::high_resolution_clock::now();
+    std::string m_frameRate;
+    std::string m_statusLine;
+  };
+
 }
