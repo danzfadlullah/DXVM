@@ -1,5 +1,7 @@
 #include "../src/Report.h"
 #include "../src/Registry.h"
+#include "../src/Child.h"
+#include "../src/SelfTestScenes.h"
 
 #include <cstdio>
 #include <string>
@@ -13,8 +15,23 @@ static int failures = 0;
   }                                                                       \
 } while (false)
 
-int main() {
+int main(int argc, char** argv) {
   using namespace dxvmt;
+
+  // Child mode: run one self-test scene in-process and print its result line.
+  if (argc >= 3 && std::string(argv[1]) == "--selftest-child") {
+    Registry reg;
+    registerSelfTestScenes(reg);
+    const auto sel = reg.select(argv[2]);
+    if (sel.empty()) {
+      std::fprintf(stderr, "unknown scene: %s\n", argv[2]);
+      return 2;
+    }
+    SceneResult r = sel[0].fn();
+    std::printf("%s\n", formatResult(sel[0].name, r).c_str());
+    std::fflush(stdout);
+    return r.status == SceneStatus::Pass ? 0 : 1;
+  }
 
   // --- Result lines: name padded to column 15, minimum one space. ---
   CHECK(formatResult("depth", SceneResult::pass("left half red")) ==
@@ -53,6 +70,27 @@ int main() {
   CHECK(reg.select("beta")[0].name == "beta");
   CHECK(reg.select("nope").empty());
   CHECK(reg.select("beta,alpha")[0].name == "alpha"); // registry order preserved
+
+  // --- Env file parsing ---
+  auto p = parseEnvLines("WRAPPER_LOG_LEVEL=info\r\n# comment\n\nDXVK_HUD=dxvm\n");
+  CHECK(p.size() == 2);
+  CHECK(p[0].first == "WRAPPER_LOG_LEVEL" && p[0].second == "info");
+  CHECK(p[1].first == "DXVK_HUD" && p[1].second == "dxvm");
+  CHECK(parseEnvLines("no_equals_sign\n").empty());
+
+  // --- Crash containment: every scene yields exactly one result line ---
+  const std::string self = argv[0];
+  ChildOutcome pass = runSceneAsChild(self, "selftest.pass");
+  CHECK(pass.produced);
+  CHECK(pass.result.status == SceneStatus::Pass);
+
+  ChildOutcome fail = runSceneAsChild(self, "selftest.fail");
+  CHECK(fail.produced);
+  CHECK(fail.result.status == SceneStatus::Fail);
+
+  ChildOutcome crash = runSceneAsChild(self, "selftest.crash");
+  CHECK(crash.result.status == SceneStatus::Crash);
+  CHECK(!crash.result.detail.empty());
 
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);

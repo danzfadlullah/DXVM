@@ -1,8 +1,11 @@
+#include "Child.h"
 #include "Registry.h"
 #include "Report.h"
+#include "SelfTestScenes.h"
 
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -17,7 +20,47 @@ namespace {
       "  --list                 list registered scenes\n"
       "  --scenes a,b           run only these scenes\n"
       "  --self-test            run the built-in stub scenes\n"
-      "  --out PATH             also write the report to PATH\n");
+      "  --env-file PATH        read KEY=VALUE lines before running\n"
+      "  --set KEY=VALUE        set one variable (repeatable)\n"
+      "  --out PATH             also write the report to PATH\n"
+      "  --selftest-child NAME  internal: run one scene in this process\n");
+  }
+
+  bool isSelfTestChild(int argc, char** argv, std::string& sceneName) {
+    for (int i = 1; i + 1 < argc; i++) {
+      if (!std::strcmp(argv[i], "--selftest-child")) {
+        sceneName = argv[i + 1];
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Read the first KEY=VALUE line from a file, or empty on failure. */
+  std::string readWholeFile(const std::string& path) {
+    std::string text;
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f)
+      return text;
+    char buf[512];
+    size_t n;
+    while ((n = std::fread(buf, 1u, sizeof(buf), f)) > 0u)
+      text.append(buf, n);
+    std::fclose(f);
+    return text;
+  }
+
+  std::string timestampNow() {
+    std::time_t t = std::time(nullptr);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tm);
+    return buf;
   }
 
   std::string argValue(int argc, char** argv, const char* flag, const char* fallback) {
@@ -47,7 +90,22 @@ int main(int argc, char** argv) {
   }
 
   Registry registry;
-  // Task 1 registers no scenes; later tasks add their groups here.
+  // Later tasks add their Direct3D groups here.
+  registerSelfTestScenes(registry);
+
+  // Child mode must run before anything else: it exists to be isolated.
+  std::string childScene;
+  if (isSelfTestChild(argc, argv, childScene)) {
+    const auto sel = registry.select(childScene);
+    if (sel.empty()) {
+      std::fprintf(stderr, "unknown scene: %s\n", childScene.c_str());
+      return 2;
+    }
+    SceneResult r = sel[0].fn();
+    std::printf("%s\n", formatResult(sel[0].name, r).c_str());
+    std::fflush(stdout);
+    return r.status == SceneStatus::Pass ? 0 : 1;
+  }
 
   if (hasFlag(argc, argv, "--list")) {
     for (const auto& entry : registry.entries())
@@ -57,16 +115,31 @@ int main(int argc, char** argv) {
 
   const std::string scenesArg = argValue(argc, argv, "--scenes", "");
   const std::string outPath   = argValue(argc, argv, "--out", "");
+  const std::string envFile   = argValue(argc, argv, "--env-file", "");
 
-  const auto selected = registry.select(scenesArg);
+  // Environment is applied before any device creation.
+  if (!envFile.empty())
+    applyEnv(parseEnvLines(readWholeFile(envFile)));
 
-  std::string report = formatHeader("2026-11-21 00:00", kHarnessVersion,
+  for (int i = 1; i + 1 < argc; i++) {
+    if (!std::strcmp(argv[i], "--set"))
+      applyEnv(parseEnvLines(std::string(argv[i + 1]) + "\n"));
+  }
+
+  const std::string effectiveScenes = hasFlag(argc, argv, "--self-test")
+    ? std::string("selftest.pass,selftest.fail,selftest.skip,selftest.crash")
+    : scenesArg;
+
+  const auto selected = registry.select(effectiveScenes);
+
+  std::string report = formatHeader(timestampNow(), kHarnessVersion,
     kHarnessCode, 0, 0);
 
   int passed = 0, failed = 0;
 
   for (const auto& entry : selected) {
-    SceneResult result = entry.fn();
+    ChildOutcome outcome = runSceneAsChild(argv[0], entry.name);
+    const SceneResult& result = outcome.result;
 
     if (result.status == SceneStatus::Pass)
       passed++;

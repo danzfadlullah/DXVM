@@ -25,6 +25,8 @@ LDFLAGS=( -Wl,--gc-sections )
 CORE_SOURCES=(
   "$HARNESS_DIR/src/Report.cpp"
   "$HARNESS_DIR/src/Registry.cpp"
+  "$HARNESS_DIR/src/Child.cpp"
+  "$HARNESS_DIR/src/SelfTestScenes.cpp"
 )
 
 BUILD_DIR="$(mktemp -d)"
