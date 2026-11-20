@@ -189,7 +189,7 @@ Expected: PASS. Then `meson compile -C build-win64` → PASS.
 
 **Files:**
 - Create: `src/dxvk/dxvm_mali/dxvm_mali_format_policy.h`, `src/dxvk/dxvm_mali/dxvm_mali_format_policy.cpp`
-- Modify: `src/dxvk/dxvk_format.cpp` (remove local `getBcnTranscodeFormat`/`needsBcnTranscoding` — move to module)
+- Modify: `src/dxvk/dxvk_format.cpp` (replace bodies of `getBcnTranscodeFormat`/`needsBcnTranscoding` with thin forwarding calls to the module; the wrappers are deleted in Task 9)
 - Modify: `src/d3d9/d3d9_common_texture.cpp`, `src/d3d11/d3d11_texture.cpp` (call remap before `createImage`)
 
 **Interfaces:**
