@@ -81,7 +81,7 @@ namespace dxvk {
     DxvkMetaResolveObjects& metaResolve() {
       return m_metaResolve.get(m_device);
     }
-    
+
   private:
 
     DxvkDevice*                   m_device;

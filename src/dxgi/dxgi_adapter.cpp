@@ -10,6 +10,8 @@
 #include "dxgi_options.h"
 #include "dxgi_output.h"
 
+#include "../dxvk/dxvm_mali/dxvm_mali_vendor.h"
+
 #include "../util/util_luid.h"
 #include "../util/util_win32_compat.h"
 
@@ -418,6 +420,14 @@ namespace dxvk {
       : options->customDeviceDesc;
 
     if (options->customVendorId < 0) {
+      // Match the D3D9 adapter path: unknown vendors are hidden by default.
+      // ARM Mali is a known (classic) vendor and is never hidden here.
+      bool isNonclassicalVendorId = !dxvmIsClassicVendor(adapterInfo.vendorId);
+
+      if (isNonclassicalVendorId)
+        Logger::info(str::format("DXGI: Detected nonclassical vendor ID: 0x",
+          std::hex, adapterInfo.vendorId));
+
       uint16_t fallbackVendor = 0xdead;
       uint16_t fallbackDevice = 0xbeef;
 
@@ -437,7 +447,8 @@ namespace dxvk {
 
       bool hideGpu = (adapterInfo.vendorId == uint16_t(DxvkGpuVendor::Nvidia) && hideNvidiaGpu)
                   || (adapterInfo.vendorId == uint16_t(DxvkGpuVendor::Amd) && options->hideAmdGpu)
-                  || (adapterInfo.vendorId == uint16_t(DxvkGpuVendor::Intel) && hideIntelGpu);
+                  || (adapterInfo.vendorId == uint16_t(DxvkGpuVendor::Intel) && hideIntelGpu)
+                  || isNonclassicalVendorId;
 
       if (hideGpu) {
         adapterInfo.vendorId = fallbackVendor;

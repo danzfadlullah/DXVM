@@ -523,6 +523,12 @@ namespace dxvk {
       imageInfo.debugName = debugName.c_str();
     }
 
+    imageInfo.bcnSourceFormat = imageInfo.format;
+    imageInfo.format = m_device->GetDXVKDevice()->remapMaliFormat(imageInfo.format);
+    // No remap (non-Mali or dxvk.enableBcnTranscoding=false): the source data
+    // stays BCn and must never be sent through the transcoder.
+    if (imageInfo.format == imageInfo.bcnSourceFormat)
+      imageInfo.bcnSourceFormat = VK_FORMAT_UNDEFINED;
     return m_device->GetDXVKDevice()->createImage(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   }
 

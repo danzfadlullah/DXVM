@@ -14,6 +14,8 @@
 #include "dxvk_meta_clear.h"
 #include "dxvk_objects.h"
 #include "dxvk_options.h"
+#include "dxvm_mali/dxvm_mali_config.h"
+#include "dxvm_mali/dxvm_mali_bcn_transcoder.h"
 #include "dxvk_pipemanager.h"
 #include "dxvk_presenter.h"
 #include "dxvk_queue.h"
@@ -45,6 +47,7 @@ namespace dxvk {
     VkBool32 preferComputeMipGen        : 1;
     VkBool32 preferDescriptorByteOffsets: 1;
     VkBool32 preferCachedMemory         : 1;
+    VkBool32 preferDynamicRendering     : 1;
   };
   
   /**
@@ -150,6 +153,14 @@ namespace dxvk {
     const DxvkOptions& config() const {
       return m_options;
     }
+
+    /**
+     * \brief Mali-specific configuration
+     * \returns Parsed DXVM Mali options
+     */
+    const DxvmMaliConfig& maliConfig() const {
+      return m_maliConfig;
+    }
     
     /**
      * \brief Queue handles
@@ -228,6 +239,15 @@ namespace dxvk {
     DxvkFormatFeatures getFormatFeatures(VkFormat format) const {
       return m_adapter->getFormatFeatures(format);
     }
+
+    /**
+     * \brief Remaps BCn formats on Mali at texture creation time
+     *
+     * Non-Mali devices return the format unchanged.
+     */
+    VkFormat remapMaliFormat(VkFormat format) const;
+
+    DxvmBcnTranscoder& bcnTranscoder() { return m_bcnTranscoder; }
 
     /**
      * \brief Queries format limits
@@ -744,8 +764,10 @@ namespace dxvk {
     void waitForIdle();
     
   private:
-    
+
     DxvkOptions                 m_options;
+    DxvmMaliConfig              m_maliConfig;
+    DxvmBcnTranscoder           m_bcnTranscoder;
 
     Rc<DxvkInstance>            m_instance;
     Rc<DxvkAdapter>             m_adapter;

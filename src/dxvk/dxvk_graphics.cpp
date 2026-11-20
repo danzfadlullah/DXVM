@@ -3,6 +3,7 @@
 #include "../util/util_time.h"
 
 #include "dxvk_device.h"
+#include "dxvm_mali/dxvm_mali_state_emulation.h"
 #include "dxvk_graphics.h"
 #include "dxvk_pipemanager.h"
 
@@ -553,6 +554,10 @@ namespace dxvk {
 
     VkGraphicsPipelineCreateInfo info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, &libInfo };
     info.pColorBlendState     = &state.cbInfo;
+    DxvmMaliEmulatedState maliState;
+    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, maliState);
+    if (maliState.hasBlend)
+      info.pColorBlendState = &maliState.cbInfo;
     info.pMultisampleState    = &msInfo;
     info.pDynamicState        = &dyInfo;
     info.basePipelineIndex    = -1;
@@ -1504,12 +1509,28 @@ namespace dxvk {
     info.layout                   = layout->getPipelineLayout();
     info.basePipelineIndex        = -1;
 
+    // State emulation must see the viewport state, so publish it before
+    // invoking the helper. Rasterizer-discard pipelines keep the upstream
+    // null viewport state.
+    const bool hasViewportState = !m_flags.test(DxvkGraphicsPipelineFlag::HasRasterizerDiscard);
+    if (hasViewportState)
+      info.pViewportState = &key.prState.vpInfo;
+
+    DxvmMaliEmulatedState maliState;
+    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, maliState);
+    if (maliState.hasRaster)
+      info.pRasterizationState = &maliState.rsInfo;
     if (key.prState.tsInfo.patchControlPoints)
       info.pTessellationState     = &key.prState.tsInfo;
 
-    if (!m_flags.test(DxvkGraphicsPipelineFlag::HasRasterizerDiscard)) {
-      info.pNext                  = &key.foState.rtInfo;
-      info.pViewportState         = &key.prState.vpInfo;
+    if (hasViewportState) {
+      // Use dynamic rendering when preferred and supported (Vulkan 1.3+)
+      if (m_device->perfHints().preferDynamicRendering
+       && m_device->features().vk13.dynamicRendering) {
+        info.pNext = &key.foState.rtInfo;
+      }
+      if (m_device->adapter()->isMali() && maliState.viewportCount)
+        info.pViewportState = &maliState.vpInfo;
       info.pMultisampleState      = &key.foState.msInfo;
       info.pDepthStencilState     = &key.fsState.dsInfo;
       info.pColorBlendState       = &key.foState.cbInfo;

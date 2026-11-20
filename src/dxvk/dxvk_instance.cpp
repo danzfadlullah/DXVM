@@ -5,6 +5,7 @@
 #include "dxvk_openvr.h"
 #include "dxvk_openxr.h"
 #include "dxvk_platform_exts.h"
+#include "dxvm_mali/dxvm_mali_extension_provider.h"
 
 #include "../wsi/wsi_platform.h"
 
@@ -41,6 +42,7 @@ namespace dxvk {
 
     // Initialize extension providers
     m_extProviders.push_back(&DxvkPlatformExts::s_instance);
+    m_extProviders.push_back(&DxvmMaliExtensionProvider::s_instance);
 #ifdef _WIN32
     m_extProviders.push_back(&VrInstance::s_instance);
     m_extProviders.push_back(&DxvkXrProvider::s_instance);
@@ -316,6 +318,17 @@ namespace dxvk {
           numDGPU += 1;
         else if (deviceProperties[i].deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
           numIGPU += 1;
+
+        // Log Mali GPU detection
+        if (adapter->isMali()) {
+          const char* archStr = "Unknown";
+          switch (adapter->getMaliArchitecture()) {
+            case DxvkAdapter::MaliArchitecture::Valhall: archStr = "Valhall"; break;
+            case DxvkAdapter::MaliArchitecture::Bifrost: archStr = "Bifrost"; break;
+            default: break;
+          }
+          Logger::info(str::format("DXVK: Detected Mali GPU (", archStr, "): ", adapter->info().deviceName));
+        }
 
         m_adapters.push_back(std::move(adapter));
       }

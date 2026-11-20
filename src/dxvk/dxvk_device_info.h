@@ -58,8 +58,10 @@ namespace dxvk {
   struct DxvkDeviceFeatures {
     VkPhysicalDeviceFeatures2                                 core                            = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
     VkPhysicalDeviceVulkan11Features                          vk11                            = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
-    VkPhysicalDeviceVulkan12Features                          vk12                            = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };;
-    VkPhysicalDeviceVulkan13Features                          vk13                            = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };;
+    VkPhysicalDeviceVulkan12Features                          vk12                            = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+    VkPhysicalDeviceVulkan13Features                          vk13                            = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
+    VkPhysicalDeviceSynchronization2FeaturesKHR               khrSynchronization2             = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR };
+    VkPhysicalDeviceTimelineSemaphoreFeaturesKHR              khrTimelineSemaphore            = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR };
     VkPhysicalDeviceAttachmentFeedbackLoopLayoutFeaturesEXT   extAttachmentFeedbackLoopLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ATTACHMENT_FEEDBACK_LOOP_LAYOUT_FEATURES_EXT };
     VkPhysicalDeviceBorderColorSwizzleFeaturesEXT             extBorderColorSwizzle           = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BORDER_COLOR_SWIZZLE_FEATURES_EXT };
     VkBool32                                                  extConservativeRasterization    = VK_FALSE;
@@ -124,6 +126,12 @@ namespace dxvk {
     VkBool32                                                  nvxBinaryImport                 = VK_FALSE;
     VkBool32                                                  nvxImageViewHandle              = VK_FALSE;
     VkBool32                                                  intelDeviceInfo                 = VK_FALSE;
+
+    // ARM Mali-specific features
+    VkPhysicalDeviceShaderCoreBuiltinsFeaturesARM          armShaderCoreBuiltins          = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_BUILTINS_FEATURES_ARM };
+    VkPhysicalDeviceShaderTileImageFeaturesEXT             extShaderTileImage             = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TILE_IMAGE_FEATURES_EXT };
+    VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesEXT armRasterizationOrderAttachmentAccess = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_EXT };
+    VkPhysicalDeviceFragmentShadingRateFeaturesKHR         khrFragmentShadingRate         = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR };
   };
 
 
@@ -193,6 +201,8 @@ namespace dxvk {
     VkExtensionProperties khrSwapchain                      = vk::makeExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     VkExtensionProperties khrSwapchainMaintenance1          = vk::makeExtension(VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME);
     VkExtensionProperties khrSwapchainMutableFormat         = vk::makeExtension(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+    VkExtensionProperties khrSynchronization2               = vk::makeExtension(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+    VkExtensionProperties khrTimelineSemaphore              = vk::makeExtension(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
     VkExtensionProperties khrUnifiedImageLayouts            = vk::makeExtension(VK_KHR_UNIFIED_IMAGE_LAYOUTS_EXTENSION_NAME);
     VkExtensionProperties khrWin32KeyedMutex                = vk::makeExtension(VK_KHR_WIN32_KEYED_MUTEX_EXTENSION_NAME);
     VkExtensionProperties amdBufferMarker                   = vk::makeExtension(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
@@ -204,6 +214,12 @@ namespace dxvk {
     VkExtensionProperties nvxBinaryImport                   = vk::makeExtension(VK_NVX_BINARY_IMPORT_EXTENSION_NAME);
     VkExtensionProperties nvxImageViewHandle                = vk::makeExtension(VK_NVX_IMAGE_VIEW_HANDLE_EXTENSION_NAME);
     VkExtensionProperties intelDeviceInfo                   = vk::makeExtension(VK_INTEL_DEVICE_INFO_EXTENSION_NAME);
+
+    // ARM Mali-specific extension properties
+    VkExtensionProperties armShaderCoreBuiltins          = vk::makeExtension(VK_ARM_SHADER_CORE_BUILTINS_EXTENSION_NAME);
+    VkExtensionProperties extShaderTileImage             = vk::makeExtension(VK_EXT_SHADER_TILE_IMAGE_EXTENSION_NAME);
+    VkExtensionProperties armRasterizationOrderAttachmentAccess = vk::makeExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
+    VkExtensionProperties khrFragmentShadingRate         = vk::makeExtension(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
   };
 
 

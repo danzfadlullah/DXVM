@@ -2183,6 +2183,10 @@ namespace dxvk {
     if (m_device->canUseDescriptorBuffer())
       descriptorHeapUsage |= DescriptorBufferUsage;
 
+    // Mali: enable BDA for all buffers when supported
+    if (m_device->features().vk12.bufferDeviceAddress)
+      m_globalBufferUsageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+
     while (descriptorHeapUsage) {
       VkBufferCreateFlags flag = descriptorHeapUsage & -descriptorHeapUsage;
 

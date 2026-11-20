@@ -1,4 +1,5 @@
 #include "dxvk_format.h"
+#include "dxvk_adapter.h"
 
 namespace dxvk {
 

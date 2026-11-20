@@ -63,6 +63,9 @@ namespace dxvk {
     SemanticIo                  = 12u,
     /// Whether to explicitly use BDA for fully-bound constant buffers.
     LowerInBoundsCbvToBda       = 13u,
+    /// Whether to enable Mali Valhall-specific IR optimizations
+    /// (requires dxbc-spirv support)
+    MaliValhallOptimizations    = 14u,
   };
 
   using DxvkShaderCompileFlags = Flags<DxvkShaderCompileFlag>;

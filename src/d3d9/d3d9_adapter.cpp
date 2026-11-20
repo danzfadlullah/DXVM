@@ -1,4 +1,5 @@
 #include "d3d9_adapter.h"
+#include "../dxvk/dxvm_mali/dxvm_mali_vendor.h"
 
 #include "d3d9_interface.h"
 #include "d3d9_monitor.h"
@@ -1100,9 +1101,7 @@ namespace dxvk {
       m_deviceDesc = options.customDeviceDesc;
 
     if (options.customVendorId < 0) {
-      bool isNonclassicalVendorId = m_vendorId != uint32_t(DxvkGpuVendor::Nvidia) &&
-                                    m_vendorId != uint32_t(DxvkGpuVendor::Amd) &&
-                                    m_vendorId != uint32_t(DxvkGpuVendor::Intel);
+      bool isNonclassicalVendorId = !dxvmIsClassicVendor(m_vendorId);
 
       if (isNonclassicalVendorId)
         Logger::info(str::format("D3D9: Detected nonclassical vendor ID: 0x", std::hex, m_vendorId));

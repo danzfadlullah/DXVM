@@ -1,8 +1,11 @@
 #pragma once
 
 #include "dxvk_include.h"
+#include "dxvk_options.h"
 
 namespace dxvk {
+
+  class DxvkAdapter;
   
   enum class DxvkFormatFlag {
     BlockCompressed = 0,  ///< Image format is block compressed

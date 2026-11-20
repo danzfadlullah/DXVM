@@ -28,6 +28,16 @@ namespace dxvk::hud {
     addItem<HudCsThreadItem>("cs", -1, device);
     addItem<HudGpuLoadItem>("gpuload", -1, device);
     addItem<HudCompilerActivityItem>("compiler", -1, device);
+
+    // DXVM C1 compact panel (opt-in via DXVK_HUD=dxvm)
+    // Report the Mali config plus the actually applied device features.
+    // DxvkOptions::enableDynamicRendering is stale (no longer parsed), so it
+    // must not be used as the source for the HUD status line.
+    addItem<HudDxvmItem>("dxvm", -1, m_device,
+      m_device->bcnTranscoder().useCpuFallback(),
+      m_device->maliConfig().enableDynamicRendering
+        && m_device->features().vk13.dynamicRendering,
+      m_device->features().vk13.synchronization2);
   }
 
 

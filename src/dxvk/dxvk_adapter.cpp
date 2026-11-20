@@ -29,6 +29,22 @@ namespace dxvk {
     m_capabilities  (instance, handle, nullptr) {
     const auto& properties = m_capabilities.getProperties();
 
+    // Mali GPU detection
+    m_isMali = properties.vk12.driverID == VK_DRIVER_ID_ARM_PROPRIETARY
+            || properties.vk12.driverID == VK_DRIVER_ID_MESA_PANVK;
+    
+    if (m_isMali) {
+      // Detect architecture from device name or driver info
+      std::string devName(properties.core.properties.deviceName);
+      if (devName.find("G61") != std::string::npos ||  // G610, G615
+          devName.find("G71") != std::string::npos ||  // G710, G715
+          devName.find("G72") != std::string::npos)    // G720
+        m_maliArch = MaliArchitecture::Valhall;
+      else if (devName.find("G5") != std::string::npos ||  // G52, G57
+               devName.find("G7") != std::string::npos)    // G76, G77
+        m_maliArch = MaliArchitecture::Bifrost;
+    }
+
     if (properties.vk11.deviceLUIDValid) {
       D3DKMT_OPENADAPTERFROMLUID open = { };
       memcpy(&open.AdapterLuid, properties.vk11.deviceLUID, sizeof(open.AdapterLuid));
@@ -380,6 +396,27 @@ namespace dxvk {
       result = result && (memory.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT);
 
     return result;
+  }
+
+
+  bool DxvkAdapter::hasMaliExtension(const char* extName) const {
+    if (!m_isMali)
+      return false;
+    
+    uint32_t count = 0;
+    m_capabilities.queryDeviceExtensions(&count, nullptr);
+    if (count == 0)
+      return false;
+    
+    std::vector<VkExtensionProperties> extensions(count);
+    if (!m_capabilities.queryDeviceExtensions(&count, extensions.data()))
+      return false;
+    
+    for (const auto& ext : extensions) {
+      if (std::strcmp(ext.extensionName, extName) == 0)
+        return true;
+    }
+    return false;
   }
 
 }
