@@ -41,13 +41,15 @@ int main() {
   uint8_t bc6h[16] = {0};
   bc6h[0] = 0; // mode 0
   bool ok6 = decodeBcnBlock(bc6h, VK_FORMAT_BC6H_UFLOAT_BLOCK, px);
-  if (ok6) CHECK(px[0].a == 255);
+  CHECK(ok6);
+  CHECK(px[0].a == 255);
 
   // BC7 block: decoder returns success for common modes.
   uint8_t bc7[16] = {0};
   bc7[0] = 0;
   bool ok7 = decodeBcnBlock(bc7, VK_FORMAT_BC7_UNORM_BLOCK, px);
-  if (ok7) CHECK(px[0].a == 255);
+  CHECK(ok7);
+  CHECK(px[0].a == 255);
 
   // Unsupported format returns false.
   CHECK(!decodeBcnBlock(bc1, VK_FORMAT_R8G8B8A8_UNORM, px));

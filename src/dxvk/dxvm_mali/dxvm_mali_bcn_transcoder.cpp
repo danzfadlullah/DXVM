@@ -38,7 +38,6 @@ namespace dxvk {
     Rgba8 pixels[16];
     uint8_t* out = static_cast<uint8_t*>(dstPtr);
     uint32_t blocksX = (imageWidth + 3u) / 4u;
-    uint32_t blocksY = (imageHeight + 3u) / 4u;
 
     for (VkDeviceSize b = 0; b < blocks; b++) {
       const uint8_t* block = static_cast<const uint8_t*>(srcPtr) + b * blockSize;

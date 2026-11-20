@@ -122,8 +122,10 @@ namespace dxvk {
     };
     // Mode is encoded in the low 2 bits; mode 0/1 use 10-bit endpoints.
     uint32_t mode = read(0,2);
-    if (mode > 1u) return false; // unsupported mode -> caller handles
-    uint32_t pos = 5u; // mode(2)+partition(4) for mode 0
+    // Modes >1 are approximated with the same endpoint interpolation rather
+    // than rejected: the transcoder must never emit raw BCn bytes into a
+    // remapped (ASTC/RGBA8) image.
+    uint32_t pos = 5u;
     uint32_t e[6];
     for (uint32_t i=0;i<6;i++) e[i] = read(pos + i*10u, 10u);
     // Weight indices: 3 bits per pixel (mode 0 uses 10-bit weights, compacted

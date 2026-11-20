@@ -6133,9 +6133,6 @@ namespace dxvk {
       return;
     }
 
-    const DxvkFormatInfo* bcnInfo = lookupFormatInfo(bcnFormat);
-    VkDeviceSize bcnSize = source->getSliceInfo(sourceOffset, 0).size;
-
     // Transcode BCn -> RGBA8 into a staging buffer matching the image format.
     DxvkBufferCreateInfo stagingInfo = { };
     stagingInfo.size = VkDeviceSize(image->info().extent.width) * image->info().extent.height * 4u;
