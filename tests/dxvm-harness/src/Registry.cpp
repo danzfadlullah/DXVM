@@ -6,6 +6,13 @@
 namespace dxvmt {
 
   void Registry::add(const std::string& name, SceneFn fn) {
+    // A duplicate name would print twice in the report and double-count in the
+    // summary, so the first registration wins and the duplicate is refused.
+    for (const auto& e : m_entries) {
+      if (e.name == name)
+        return;
+    }
+
     m_entries.push_back(Entry{ name, fn });
   }
 

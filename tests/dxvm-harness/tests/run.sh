@@ -30,6 +30,7 @@ CORE_SOURCES=(
   "$HARNESS_DIR/src/Device.cpp"
   "$HARNESS_DIR/src/scenes/Msaa.cpp"
   "$HARNESS_DIR/src/scenes/Bcn.cpp"
+  "$HARNESS_DIR/src/Scope.cpp"
 )
 
 BUILD_DIR="$(mktemp -d)"

@@ -71,6 +71,10 @@ int main(int argc, char** argv) {
   CHECK(reg.select("nope").empty());
   CHECK(reg.select("beta,alpha")[0].name == "alpha"); // registry order preserved
 
+  // A duplicate registration must not produce a second report line.
+  reg.add("alpha", [] { return SceneResult::fail("dup"); });
+  CHECK(reg.entries().size() == 2);
+
   // --- Env file parsing ---
   auto p = parseEnvLines("WRAPPER_LOG_LEVEL=info\r\n# comment\n\nDXVK_HUD=dxvm\n");
   CHECK(p.size() == 2);

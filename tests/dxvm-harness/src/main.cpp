@@ -1,10 +1,12 @@
 #include "Child.h"
 #include "Device.h"
 #include "Registry.h"
+#include "Scope.h"
 #include "Report.h"
 #include "SelfTestScenes.h"
 
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 #include <ctime>
 #include <string>
@@ -37,6 +39,8 @@ namespace {
       "  --self-test            run the built-in stub scenes\n"
       "  --env-file PATH        read KEY=VALUE lines before running\n"
       "  --set KEY=VALUE        set one variable (repeatable)\n"
+      "  --api d3d11,d3d10,d3d9 select APIs (default: all)\n"
+      "  --backend raw|wrapper|forced  which Vulkan backend is in play\n"
       "  --out PATH             also write the report to PATH\n"
       "  --selftest-child NAME  internal: run one scene in this process\n");
   }
@@ -153,13 +157,22 @@ int main(int argc, char** argv) {
 
   const auto selected = registry.select(effectiveScenes);
 
+  const auto apis    = parseApis(argValue(argc, argv, "--api", "all"));
+  const Backend backend = parseBackend(argValue(argc, argv, "--backend", "raw"));
+
   struct Row { std::string name; SceneResult result; };
   std::vector<Row> rows;
   rows.reserve(selected.size());
 
   int passed = 0, failed = 0;
 
+  // Scenes run in registry order; the API filter decides which appear.
   for (const auto& entry : selected) {
+    const Api api = apiOfScene(entry.name);
+
+    if (std::find(apis.begin(), apis.end(), api) == apis.end())
+      continue;
+
     ChildOutcome outcome = runSceneAsChild(argv[0], entry.name);
     const SceneResult& result = outcome.result;
 
@@ -180,9 +193,28 @@ int main(int argc, char** argv) {
   report += "\n";
 #endif
 
-  for (const auto& row : rows) {
-    report += formatResult(row.name, row.result);
-    report += '\n';
+  const char* backendName =
+    backend == Backend::WrapperForced ? "wrapper (forced)" :
+    backend == Backend::Wrapper       ? "wrapper" : "raw driver";
+
+  for (Api api : apis) {
+    bool headerWritten = false;
+
+    for (const auto& row : rows) {
+      if (apiOfScene(row.name) != api)
+        continue;
+
+      if (!headerWritten) {
+        report += apiSectionHeader(api);
+        report += " (";
+        report += backendName;
+        report += ")\n";
+        headerWritten = true;
+      }
+
+      report += formatResult(row.name, row.result);
+      report += '\n';
+    }
   }
 
   report += formatSummary(passed, failed);

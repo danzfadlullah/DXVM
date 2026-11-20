@@ -21,6 +21,7 @@ dxvm_harness_src = files(
   'src/scenes/MsaaScenes.cpp',
   'src/scenes/StateScenes.cpp',
   'src/scenes/TextureScenes.cpp',
+  'src/Scope.cpp',
   'src/scenes/RemainingScenes.cpp',
   'src/scenes/D3D9Scenes.cpp',
   'src/scenes/D3D10Scenes.cpp',
