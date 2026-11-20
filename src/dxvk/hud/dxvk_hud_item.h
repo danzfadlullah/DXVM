@@ -816,6 +816,7 @@ namespace dxvk::hud {
     PresenterTimingFeedback m_lastFeedback = {};
     dxvk::high_resolution_clock::time_point m_lastUpdate = dxvk::high_resolution_clock::now();
     std::string m_frameRate;
+    std::string m_frameTime;
     std::string m_statusLine;
     std::string m_gpuLoad;
     std::string m_drawCalls;

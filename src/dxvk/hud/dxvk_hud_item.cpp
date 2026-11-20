@@ -1495,6 +1495,8 @@ namespace dxvk::hud {
         uint64_t fps = (double(frameCount) * double(10'000'000.0)) / double(durationUs);
         m_lastFeedback = feedback;
         m_frameRate = str::format(fps / 10, ".", fps % 10);
+        uint64_t ftUs = durationUs / frameCount;
+        m_frameTime = str::format(ftUs / 1000, ".", (ftUs / 100) % 10, "ms");
       }
     } else if (feedback.frameId < m_lastFeedback.frameId) {
       m_lastFeedback = feedback;
@@ -1544,7 +1546,7 @@ namespace dxvk::hud {
     renderer.drawText(16, { position.x + 152, position.y + 46 }, 0xffffffffu, m_memory);
 
     renderer.drawText(16, { position.x, position.y + 62 }, 0xff6c7086u, "FT");
-    renderer.drawText(16, { position.x + 48, position.y + 62 }, 0xffffffffu, m_frameRate);
+    renderer.drawText(16, { position.x + 48, position.y + 62 }, 0xffffffffu, m_frameTime);
     renderer.drawText(16, { position.x + 112, position.y + 62 }, 0xff6c7086u, "CMP");
     renderer.drawText(16, { position.x + 152, position.y + 62 }, 0xff94e2d5u, m_compiler);
 
