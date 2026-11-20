@@ -1,0 +1,10 @@
+# Build artifacts
+build-win64/
+build-win32/
+build-linux/
+build-android/
+dist/
+
+# SDD / brainstorming scratch
+.superpowers/
+.worktrees/
