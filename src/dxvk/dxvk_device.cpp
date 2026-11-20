@@ -735,8 +735,7 @@ namespace dxvk {
 
 
     // Mali-specific perf hints are applied by the centralized module.
-    dxvmMaliApplyHints(m_maliConfig, m_adapter->info().vendorId == uint16_t(DxvkGpuVendor::Arm)
-      ? VK_DRIVER_ID_ARM_PROPRIETARY : m_properties.vk12.driverID,
+    dxvmMaliApplyHints(m_maliConfig, m_properties.vk12.driverID,
       maliArch == DxvkAdapter::MaliArchitecture::Valhall, hints);
 
     return hints;

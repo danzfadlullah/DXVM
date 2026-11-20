@@ -11,9 +11,7 @@ uint32_t dxvmMaliHintFlags(
     if (!isMali)
       return 0;
 
-    uint32_t flags = DXVM_HINT_DESCRIPTOR_OFFSETS
-                   | DXVM_HINT_CACHED_MEMORY
-                   | DXVM_HINT_RENDERPASS_OPS;
+    uint32_t flags = DXVM_HINT_DESCRIPTOR_OFFSETS;
     if (config.enableDynamicRendering)
       flags |= DXVM_HINT_DYNAMIC_RENDERING;
     if (isValhall)
@@ -26,8 +24,8 @@ uint32_t dxvmMaliHintFlags(
           bool                    isMali,
           bool                    hasFloat16,
           bool                    hasInt8) {
-    if (!isMali)
-      return false;
+    // Preserve upstream DxvkOptions behavior for non-Mali devices: the
+    // dxvk.enableFP16Shaders / enableINT8Shaders options still apply.
     return (hasFloat16 && (config.enableFP16Shaders || isMali))
         || (hasInt8 && (config.enableINT8Shaders || isMali));
   }

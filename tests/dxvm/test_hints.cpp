@@ -25,6 +25,10 @@ int main() {
   CHECK((f & DXVM_HINT_COMPUTE_MIPGEN) == 0);
 
   // 16-bit shader arithmetic on Mali.
+  // Non-Mali with explicit FP16 option still gets 16-bit (upstream behavior).
+  DxvmMaliConfig nonMaliCfg(Config{});
+  nonMaliCfg.enableFP16Shaders = true;
+  CHECK(dxvmMaliUse16Bit(nonMaliCfg, false, true, false) == true);
   CHECK(dxvmMaliUse16Bit(cfg, false, true, true) == false);
   CHECK(dxvmMaliUse16Bit(cfg, true, true, true) == true);
   CHECK(dxvmMaliUse16Bit(cfg, true, false, false) == false);
