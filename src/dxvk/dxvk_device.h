@@ -232,6 +232,13 @@ namespace dxvk {
     }
 
     /**
+     * \brief Remaps BCn formats on Mali at texture creation time
+     *
+     * Non-Mali devices return the format unchanged.
+     */
+    VkFormat remapMaliFormat(VkFormat format) const;
+
+    /**
      * \brief Queries format limits
      *
      * \param [in] query Format query info

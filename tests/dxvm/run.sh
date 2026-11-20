@@ -36,6 +36,7 @@ MODULE_SOURCES=(
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_context.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_features.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_hint_flags.cpp"
+  "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_format_policy.cpp"
 )
 CONFIG_SOURCE="$SRC_DIR/util/config/config.cpp"
 

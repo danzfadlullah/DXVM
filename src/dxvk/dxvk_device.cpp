@@ -3,6 +3,7 @@
 #include "dxvk_shader_cache.h"
 #include "dxvk_shader_ir.h"
 #include "dxvm_mali/dxvm_mali_hints.h"
+#include "dxvm_mali/dxvm_mali_format_policy.h"
 
 namespace dxvk {
   
@@ -739,6 +740,13 @@ namespace dxvk {
       maliArch == DxvkAdapter::MaliArchitecture::Valhall, hints);
 
     return hints;
+  }
+
+
+  VkFormat DxvkDevice::remapMaliFormat(VkFormat format) const {
+    // useCpuBcn is decided once by the transcoder; until Task 5 wires it,
+    // assume GPU dispatch is available on Mali (the common case).
+    return dxvmMaliRemapFormat(m_adapter->isMali(), false, format);
   }
 
 
