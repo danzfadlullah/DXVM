@@ -121,7 +121,6 @@ namespace dxvk {
       uint32_t v=0; for (uint32_t k=0;k<n;k++) v |= bit(pos+k)<<k; return v;
     };
     // Mode is encoded in the low 2 bits; mode 0/1 use 10-bit endpoints.
-    uint32_t mode = read(0,2);
     // Modes >1 are approximated with the same endpoint interpolation rather
     // than rejected: the transcoder must never emit raw BCn bytes into a
     // remapped (ASTC/RGBA8) image.
