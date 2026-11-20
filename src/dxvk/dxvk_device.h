@@ -14,6 +14,7 @@
 #include "dxvk_meta_clear.h"
 #include "dxvk_objects.h"
 #include "dxvk_options.h"
+#include "dxvm_mali/dxvm_mali_config.h"
 #include "dxvk_pipemanager.h"
 #include "dxvk_presenter.h"
 #include "dxvk_queue.h"
@@ -745,8 +746,9 @@ namespace dxvk {
     void waitForIdle();
     
   private:
-    
+
     DxvkOptions                 m_options;
+    DxvmMaliConfig              m_maliConfig;
 
     Rc<DxvkInstance>            m_instance;
     Rc<DxvkAdapter>             m_adapter;

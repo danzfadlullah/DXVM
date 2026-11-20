@@ -24,6 +24,9 @@ CXXFLAGS=(
   -I "$TEST_DIR/stubs"
   -I "$ROOT_DIR/include"
   -I "$ROOT_DIR/include/vulkan/include"
+  -I "$ROOT_DIR/include/native"
+  -I "$ROOT_DIR/include/native/windows"
+  -I "$ROOT_DIR/include/native/directx"
   -I "$SRC_DIR"
 )
 LDFLAGS=( -Wl,--gc-sections )
@@ -32,6 +35,7 @@ MODULE_SOURCES=(
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_config.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_context.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_features.cpp"
+  "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_hint_flags.cpp"
 )
 CONFIG_SOURCE="$SRC_DIR/util/config/config.cpp"
 

@@ -14,3 +14,18 @@ typedef void* SECURITY_ATTRIBUTES;
 typedef void* HINSTANCE;
 typedef void* HWND;
 typedef void* HDC;
+typedef long HRESULT;
+typedef unsigned long long UINT64;
+typedef long long INT64;
+typedef unsigned int UINT;
+typedef void* D3DKMT_HANDLE;
+typedef struct { unsigned long LowPart; long HighPart; } LUID;
+typedef unsigned long NTSTATUS;
+typedef unsigned long ULONG;
+#define WINAPI
+#define WINBASEAPI
+#define EXTERN_C extern "C"
+#ifndef INVALID_HANDLE_VALUE
+#define INVALID_HANDLE_VALUE ((void*)-1)
+#endif
+typedef void* OBJECT_ATTRIBUTES;

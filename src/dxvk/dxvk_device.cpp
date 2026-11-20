@@ -2,6 +2,7 @@
 #include "dxvk_instance.h"
 #include "dxvk_shader_cache.h"
 #include "dxvk_shader_ir.h"
+#include "dxvm_mali/dxvm_mali_hints.h"
 
 namespace dxvk {
   
@@ -13,6 +14,7 @@ namespace dxvk {
     const DxvkDeviceQueueSet&       queues,
     const DxvkQueueCallback&        queueCallback)
   : m_options           (instance->options()),
+    m_maliConfig        (instance->config()),
     m_instance          (instance),
     m_adapter           (adapter),
     m_vkd               (vkd),
@@ -715,9 +717,6 @@ namespace dxvk {
     hints.preferRenderPassOps = tilerMode;
     hints.preferCachedMemory = tilerMode;
 
-    // Mali-specific: prefer dynamic rendering
-    if (isMali && m_options.enableDynamicRendering)
-      hints.preferDynamicRendering = true;
 
     // Compute-based mip generation has some potential for performance
     // regressions or driver issues. Just enable it on Nvidia and RADV
@@ -726,9 +725,6 @@ namespace dxvk {
                              || (m_adapter->matchesDriver(VK_DRIVER_ID_MESA_RADV)
                               && m_properties.vk13.minSubgroupSize == 32u));
 
-    // Mali-specific: compute mip gen on Valhall
-    if (isMali && maliArch == DxvkAdapter::MaliArchitecture::Valhall)
-      hints.preferComputeMipGen = true;
 
     // On AMD we can expect it to be optimal to simply pass the heap offset
     // to descriptor memory through as-is to avoid some ALU. Some other
@@ -737,9 +733,11 @@ namespace dxvk {
                                      || m_adapter->matchesDriver(VK_DRIVER_ID_AMD_OPEN_SOURCE)
                                      || m_adapter->matchesDriver(VK_DRIVER_ID_AMD_PROPRIETARY);
 
-    // Mali-specific: descriptor byte offsets (like RADV)
-    if (isMali)
-      hints.preferDescriptorByteOffsets = true;
+
+    // Mali-specific perf hints are applied by the centralized module.
+    dxvmMaliApplyHints(m_maliConfig, m_adapter->info().vendorId == uint16_t(DxvkGpuVendor::Arm)
+      ? VK_DRIVER_ID_ARM_PROPRIETARY : m_properties.vk12.driverID,
+      maliArch == DxvkAdapter::MaliArchitecture::Valhall, hints);
 
     return hints;
   }
@@ -756,17 +754,16 @@ namespace dxvk {
 
     // Mali FP16/INT8 support
     bool isMali = m_adapter->isMali();
+
+    dxvmMaliApplyShaderOptions(m_maliConfig, isMali,
+      m_features.vk12.shaderFloat16, m_features.vk12.shaderInt8, m_shaderOptions);
+
     // auto maliArch = m_adapter->getMaliArchitecture(); // unused for now
 
-    if (m_features.vk12.shaderFloat16 && (m_options.enableFP16Shaders || isMali))
-      m_shaderOptions.flags.set(DxvkShaderCompileFlag::Supports16BitArithmetic);
 
     if (m_features.vk11.storagePushConstant16 && m_features.vk12.storagePushConstant8)
       m_shaderOptions.flags.set(DxvkShaderCompileFlag::SupportsSubDwordPushData);
 
-    // Mali INT8 support (enabled with FP16 via same VK_KHR_shader_float16_int8 extension)
-    if (m_features.vk12.shaderInt8 && (m_options.enableINT8Shaders || isMali))
-      m_shaderOptions.flags.set(DxvkShaderCompileFlag::Supports16BitArithmetic);
 
     // Mali Valhall-specific IR optimizations (disabled - requires dxbc-spirv support)
     // if (isMali && maliArch == DxvkAdapter::MaliArchitecture::Valhall)
