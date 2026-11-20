@@ -3,6 +3,7 @@
 #include "../util/util_time.h"
 
 #include "dxvk_device.h"
+#include "dxvm_mali/dxvm_mali_state_emulation.h"
 #include "dxvk_graphics.h"
 #include "dxvk_pipemanager.h"
 
@@ -553,6 +554,11 @@ namespace dxvk {
 
     VkGraphicsPipelineCreateInfo info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO, &libInfo };
     info.pColorBlendState     = &state.cbInfo;
+    uint32_t maliCount = state.cbInfo.attachmentCount;
+    uint32_t maliVp = 1u;
+    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info,
+      const_cast<VkPipelineColorBlendAttachmentState*>(state.cbInfo.pAttachments),
+      maliCount, maliVp);
     info.pMultisampleState    = &msInfo;
     info.pDynamicState        = &dyInfo;
     info.basePipelineIndex    = -1;
@@ -1503,6 +1509,10 @@ namespace dxvk {
     info.pDynamicState            = &key.dyState.dyInfo;
     info.layout                   = layout->getPipelineLayout();
     info.basePipelineIndex        = -1;
+
+    uint32_t maliViewportCount = 1u;
+    dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, nullptr,
+      maliViewportCount, maliViewportCount);
 
     if (key.prState.tsInfo.patchControlPoints)
       info.pTessellationState     = &key.prState.tsInfo;

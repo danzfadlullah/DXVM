@@ -68,6 +68,7 @@ dxvk_src = [
   'dxvm_mali/dxvm_mali_hint_flags.cpp',
   'dxvm_mali/dxvm_mali_format_policy.cpp',
   'dxvm_mali/dxvm_mali_bcn_transcoder.cpp',
+  'dxvm_mali/dxvm_mali_state_emulation.cpp',
   'dxvm_mali/bcndecode/bcn_decode.cpp',
   'dxvk_memory.cpp',
   'dxvk_meta_blit.cpp',
