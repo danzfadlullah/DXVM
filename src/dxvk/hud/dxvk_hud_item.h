@@ -817,6 +817,11 @@ namespace dxvk::hud {
     dxvk::high_resolution_clock::time_point m_lastUpdate = dxvk::high_resolution_clock::now();
     std::string m_frameRate;
     std::string m_statusLine;
+    std::string m_gpuLoad;
+    std::string m_drawCalls;
+    std::string m_memory;
+    std::string m_compiler;
+    uint64_t m_prevGpuIdleTicks = 0;
   };
 
 }

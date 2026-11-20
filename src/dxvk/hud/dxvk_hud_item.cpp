@@ -1499,29 +1499,54 @@ namespace dxvk::hud {
     } else if (feedback.frameId < m_lastFeedback.frameId) {
       m_lastFeedback = feedback;
     }
+
+    // Real DXVM stats from device counters.
+    auto stats = m_device->getStatCounters();
+    m_drawCalls = str::format(stats.getCtr(DxvkStatCounter::CmdDrawCalls));
+    auto tasksDone = stats.getCtr(DxvkStatCounter::PipeTasksDone);
+    auto tasksTotal = stats.getCtr(DxvkStatCounter::PipeTasksTotal);
+    m_compiler = tasksTotal ? str::format(tasksDone, "/", tasksTotal) : "idle";
+
+    VkDeviceSize used = 0, budget = 0;
+    for (uint32_t i = 0; i < VK_MAX_MEMORY_HEAPS; i++) {
+      auto heap = m_device->getMemoryStats(i);
+      used += heap.memoryUsed;
+      budget += heap.memoryBudget;
+    }
+    m_memory = budget ? str::format(used >> 30, "/", budget >> 30, "G")
+                      : str::format(used >> 30, "G");
+
+    // GPU load from idle ticks (mirrors HudGpuLoadItem methodology).
+    uint64_t idle = stats.getCtr(DxvkStatCounter::GpuIdleTicks);
+    if (m_prevGpuIdleTicks && idle >= m_prevGpuIdleTicks) {
+      uint64_t diff = idle - m_prevGpuIdleTicks;
+      uint32_t pct = uint32_t(100u - std::min<uint64_t>(100u, (diff * 100u) / uint64_t(elapsed.count())));
+      m_gpuLoad = str::format(pct, "%");
+    }
+    m_prevGpuIdleTicks = idle;
   }
 
   HudPos HudDxvmItem::render(
     const Rc<DxvkCommandList>&, const HudPipelineKey&, const HudOptions&,
           HudRenderer& renderer, HudPos position) {
     // C1 compact two-column panel.
-    renderer.drawText(16, { position.x, position.y + 14 }, 0xff89b4fau, "DXVM · Mali");
+    renderer.drawText(16, { position.x, position.y + 14 }, 0xff89b4fau, "DXVM · G615");
     renderer.drawText(16, { position.x + 176, position.y + 14 }, 0xffa6adc8u, "Valhall");
 
     renderer.drawText(16, { position.x, position.y + 30 }, 0xff6c7086u, "FPS");
     renderer.drawText(16, { position.x + 48, position.y + 30 }, 0xffa6e3a1u, m_frameRate);
     renderer.drawText(16, { position.x + 112, position.y + 30 }, 0xff6c7086u, "DC");
-    renderer.drawText(16, { position.x + 152, position.y + 30 }, 0xffffffffu, "—");
+    renderer.drawText(16, { position.x + 152, position.y + 30 }, 0xffffffffu, m_drawCalls);
 
     renderer.drawText(16, { position.x, position.y + 46 }, 0xff6c7086u, "GPU");
-    renderer.drawText(16, { position.x + 48, position.y + 46 }, 0xfff9e2afu, "—");
+    renderer.drawText(16, { position.x + 48, position.y + 46 }, 0xfff9e2afu, m_gpuLoad);
     renderer.drawText(16, { position.x + 112, position.y + 46 }, 0xff6c7086u, "MEM");
-    renderer.drawText(16, { position.x + 152, position.y + 46 }, 0xffffffffu, "—");
+    renderer.drawText(16, { position.x + 152, position.y + 46 }, 0xffffffffu, m_memory);
 
     renderer.drawText(16, { position.x, position.y + 62 }, 0xff6c7086u, "FT");
-    renderer.drawText(16, { position.x + 48, position.y + 62 }, 0xffffffffu, "—");
+    renderer.drawText(16, { position.x + 48, position.y + 62 }, 0xffffffffu, m_frameRate);
     renderer.drawText(16, { position.x + 112, position.y + 62 }, 0xff6c7086u, "CMP");
-    renderer.drawText(16, { position.x + 152, position.y + 62 }, 0xff94e2d5u, "idle");
+    renderer.drawText(16, { position.x + 152, position.y + 62 }, 0xff94e2d5u, m_compiler);
 
     renderer.drawText(14, { position.x, position.y + 82 }, 0xff6c7086u, m_statusLine);
 
