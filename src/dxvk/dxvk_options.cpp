@@ -48,6 +48,7 @@ namespace dxvk {
     enableTimelineSemaphore      = config.getOption<bool>("dxvk.enableTimelineSemaphore", false);
     preferCachedMemory           = config.getOption<Tristate>("dxvk.preferCachedMemory", Tristate::Auto);
     maxMemoryBudgetMB            = config.getOption<int32_t>("dxvk.maxMemoryBudget", 0);
+    enableBcnTranscoding         = config.getOption<bool>("dxvk.enableBcnTranscoding", true);
   }
 
 }

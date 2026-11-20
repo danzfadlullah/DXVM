@@ -1102,7 +1102,8 @@ namespace dxvk {
     if (options.customVendorId < 0) {
       bool isNonclassicalVendorId = m_vendorId != uint32_t(DxvkGpuVendor::Nvidia) &&
                                     m_vendorId != uint32_t(DxvkGpuVendor::Amd) &&
-                                    m_vendorId != uint32_t(DxvkGpuVendor::Intel);
+                                    m_vendorId != uint32_t(DxvkGpuVendor::Intel) &&
+                                    m_vendorId != uint32_t(DxvkGpuVendor::Arm);
 
       if (isNonclassicalVendorId)
         Logger::info(str::format("D3D9: Detected nonclassical vendor ID: 0x", std::hex, m_vendorId));

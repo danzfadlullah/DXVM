@@ -756,7 +756,7 @@ namespace dxvk {
 
     // Mali FP16/INT8 support
     bool isMali = m_adapter->isMali();
-    auto maliArch = m_adapter->getMaliArchitecture();
+    // auto maliArch = m_adapter->getMaliArchitecture(); // unused for now
 
     if (m_features.vk12.shaderFloat16 && (m_options.enableFP16Shaders || isMali))
       m_shaderOptions.flags.set(DxvkShaderCompileFlag::Supports16BitArithmetic);

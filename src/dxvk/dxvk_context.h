@@ -1599,11 +1599,18 @@ namespace dxvk {
             VkDeviceSize              subresourceAlignment,
             VkFormat                  format);
 
+    void uploadImageBcnTranscode(
+      const Rc<DxvkImage>&            image,
+      const Rc<DxvkBuffer>&           source,
+            VkDeviceSize              sourceOffset,
+            VkDeviceSize              subresourceAlignment);
+
     void uploadImageHw(
       const Rc<DxvkImage>&            image,
       const Rc<DxvkBuffer>&           source,
+            VkDeviceSize              sourceOffset,
             VkDeviceSize              subresourceAlignment,
-            VkDeviceSize              sourceOffset);
+            bool                      allowBcnTranscode = true);
 
     void acquireShadowAttachment(const DxvkAttachment& attachment);
     void releaseShadowAttachment(const DxvkAttachment& attachment);

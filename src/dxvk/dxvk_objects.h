@@ -7,6 +7,7 @@
 #include "dxvk_meta_blit.h"
 #include "dxvk_meta_clear.h"
 #include "dxvk_meta_copy.h"
+#include "dxvk_meta_bcn.h"
 #include "dxvk_meta_mipgen.h"
 #include "dxvk_meta_resolve.h"
 #include "dxvk_pipemanager.h"
@@ -81,7 +82,11 @@ namespace dxvk {
     DxvkMetaResolveObjects& metaResolve() {
       return m_metaResolve.get(m_device);
     }
-    
+
+    DxvkMetaBcnTranscodeObjects& metaBcnTranscode() {
+      return m_metaBcnTranscode.get(m_device);
+    }
+
   private:
 
     DxvkDevice*                   m_device;
@@ -102,6 +107,7 @@ namespace dxvk {
     Lazy<DxvkMetaClearObjects>    m_metaClear;
     Lazy<DxvkMetaCopyObjects>     m_metaCopy;
     Lazy<DxvkMetaResolveObjects>  m_metaResolve;
+    Lazy<DxvkMetaBcnTranscodeObjects>  m_metaBcnTranscode;
 
   };
 

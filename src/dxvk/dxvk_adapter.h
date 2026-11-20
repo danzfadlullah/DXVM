@@ -25,6 +25,7 @@ namespace dxvk {
     Amd    = 0x1002,
     Nvidia = 0x10de,
     Intel  = 0x8086,
+    Arm    = 0x13b5, ///< ARM Mali (vendor ID used by games)
   };
 
   /**

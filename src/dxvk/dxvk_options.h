@@ -116,6 +116,9 @@ namespace dxvk {
     Tristate preferCachedMemory = Tristate::Auto;
     /// Maximum memory budget in MB (for unified memory systems)
     int32_t maxMemoryBudgetMB = 3072;
+
+    /// Enable BCn texture format transcoding to ASTC/ETC2 (Mali GPUs)
+    bool enableBcnTranscoding = true;
   };
 
 }

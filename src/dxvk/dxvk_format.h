@@ -1,8 +1,11 @@
 #pragma once
 
 #include "dxvk_include.h"
+#include "dxvk_options.h"
 
 namespace dxvk {
+
+  class DxvkAdapter;
   
   enum class DxvkFormatFlag {
     BlockCompressed = 0,  ///< Image format is block compressed
@@ -140,5 +143,37 @@ namespace dxvk {
    * \returns Linear format that corresponds to \c format.
    */
   VkFormat getLinearFormat(VkFormat format);
+
+  /**
+   * \brief Checks if a format is a BCn (Block Compression) format
+   *
+   * BCn formats are used by Windows games but not natively supported
+   * on Mali GPUs. They need to be transcoded to ASTC/ETC2.
+   *
+   * \param [in] format Format to check
+   * \returns \c true if the format is a BCn format
+   */
+  bool isBcnFormat(VkFormat format);
+
+  /**
+   * \brief Gets the recommended ASTC format for transcoding a BCn format
+   *
+   * Maps BCn formats to ASTC formats that provide similar quality
+   * and block size characteristics.
+   *
+   * \param [in] format BCn format to transcode
+   * \returns Recommended ASTC format, or VK_FORMAT_UNDEFINED if not a BCn format
+   */
+  VkFormat getBcnTranscodeFormat(VkFormat format);
+
+  /**
+   * \brief Checks if BCn transcoding is needed for the given format on this device
+   *
+   * \param [in] format Format to check
+   * \param [in] adapter Adapter to check (for Mali detection)
+   * \param [in] options Device options (for enableBcnTranscoding flag)
+   * \returns \c true if BCn transcoding should be used
+   */
+  bool needsBcnTranscoding(VkFormat format, const DxvkAdapter* adapter, const DxvkOptions& options);
 
 }

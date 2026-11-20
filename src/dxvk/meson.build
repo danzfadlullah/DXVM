@@ -12,6 +12,12 @@ dxvk_shaders = files([
   'shaders/dxvk_present_frag_ms_blit.frag',
   'shaders/dxvk_present_vert.vert',
 
+  'shaders/bcn/bcn_transcode_bc1.comp',
+  'shaders/bcn/bcn_transcode_bc3.comp',
+  'shaders/bcn/bcn_transcode_bc4_bc5.comp',
+  'shaders/bcn/bcn_transcode_bc6h.comp',
+  'shaders/bcn/bcn_transcode_bc7.comp',
+
   'hud/shaders/hud_chunk_frag_background.frag',
   'hud/shaders/hud_chunk_frag_visualize.frag',
   'hud/shaders/hud_chunk_vert_background.vert',
@@ -59,6 +65,7 @@ dxvk_src = [
   'dxvk_meta_blit.cpp',
   'dxvk_meta_clear.cpp',
   'dxvk_meta_copy.cpp',
+  'dxvk_meta_bcn.cpp',
   'dxvk_meta_mipgen.cpp',
   'dxvk_meta_resolve.cpp',
   'dxvk_options.cpp',

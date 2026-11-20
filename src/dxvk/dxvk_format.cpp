@@ -1,4 +1,5 @@
 #include "dxvk_format.h"
+#include "dxvk_adapter.h"
 
 namespace dxvk {
 
@@ -631,6 +632,114 @@ namespace dxvk {
     }
 
     return format;
+  }
+
+  /**
+   * \brief Checks if a format is a BCn (Block Compression) format
+   *
+   * BCn formats are used by Windows games but not natively supported
+   * on Mali GPUs. They need to be transcoded to ASTC/ETC2.
+   *
+   * \param [in] format Format to check
+   * \returns \c true if the format is a BCn format
+   */
+  bool isBcnFormat(VkFormat format) {
+    switch (format) {
+      case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+      case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+      case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+      case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+      case VK_FORMAT_BC2_UNORM_BLOCK:
+      case VK_FORMAT_BC2_SRGB_BLOCK:
+      case VK_FORMAT_BC3_UNORM_BLOCK:
+      case VK_FORMAT_BC3_SRGB_BLOCK:
+      case VK_FORMAT_BC4_UNORM_BLOCK:
+      case VK_FORMAT_BC4_SNORM_BLOCK:
+      case VK_FORMAT_BC5_UNORM_BLOCK:
+      case VK_FORMAT_BC5_SNORM_BLOCK:
+      case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+      case VK_FORMAT_BC6H_SFLOAT_BLOCK:
+      case VK_FORMAT_BC7_UNORM_BLOCK:
+      case VK_FORMAT_BC7_SRGB_BLOCK:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * \brief Gets the recommended ASTC format for transcoding a BCn format
+   *
+   * Maps BCn formats to ASTC formats that provide similar quality
+   * and block size characteristics.
+   *
+   * \param [in] format BCn format to transcode
+   * \returns Recommended ASTC format, or VK_FORMAT_UNDEFINED if not a BCn format
+   */
+  VkFormat getBcnTranscodeFormat(VkFormat format) {
+    switch (format) {
+      // BC1 (DXT1) - RGB + 1-bit alpha -> ASTC 4x4 LDR
+      case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+      case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+      case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+      case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+        return format == VK_FORMAT_BC1_RGB_SRGB_BLOCK || format == VK_FORMAT_BC1_RGBA_SRGB_BLOCK
+          ? VK_FORMAT_ASTC_4x4_SRGB_BLOCK
+          : VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+
+      // BC2 (DXT3) - Explicit alpha -> ASTC 4x4 LDR
+      case VK_FORMAT_BC2_UNORM_BLOCK:
+      case VK_FORMAT_BC2_SRGB_BLOCK:
+        return format == VK_FORMAT_BC2_SRGB_BLOCK
+          ? VK_FORMAT_ASTC_4x4_SRGB_BLOCK
+          : VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+
+      // BC3 (DXT5) - Interpolated alpha -> ASTC 4x4 LDR
+      case VK_FORMAT_BC3_UNORM_BLOCK:
+      case VK_FORMAT_BC3_SRGB_BLOCK:
+        return format == VK_FORMAT_BC3_SRGB_BLOCK
+          ? VK_FORMAT_ASTC_4x4_SRGB_BLOCK
+          : VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+
+      // BC4 - Single channel -> ASTC 4x4 LDR
+      case VK_FORMAT_BC4_UNORM_BLOCK:
+      case VK_FORMAT_BC4_SNORM_BLOCK:
+        return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+
+      // BC5 - Two channels (RG) -> ASTC 4x4 LDR
+      case VK_FORMAT_BC5_UNORM_BLOCK:
+      case VK_FORMAT_BC5_SNORM_BLOCK:
+        return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+
+      // BC6H - HDR RGB (Half float) -> ASTC 6x6 HDR
+      case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+      case VK_FORMAT_BC6H_SFLOAT_BLOCK:
+        return VK_FORMAT_ASTC_6x6_SFLOAT_BLOCK;
+
+      // BC7 - High quality RGB/RGBA -> ASTC 6x6 LDR
+      case VK_FORMAT_BC7_UNORM_BLOCK:
+      case VK_FORMAT_BC7_SRGB_BLOCK:
+        return format == VK_FORMAT_BC7_SRGB_BLOCK
+          ? VK_FORMAT_ASTC_6x6_SRGB_BLOCK
+          : VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
+
+      default:
+        return VK_FORMAT_UNDEFINED;
+    }
+  }
+
+  /**
+   * \brief Checks if BCn transcoding is needed for the given format on this device
+   *
+   * \param [in] format Format to check
+   * \param [in] adapter Adapter to check (for Mali detection)
+   * \param [in] options Device options (for enableBcnTranscoding flag)
+   * \returns \c true if BCn transcoding should be used
+   */
+  bool needsBcnTranscoding(VkFormat format, const DxvkAdapter* adapter, const DxvkOptions& options) {
+    return options.enableBcnTranscoding
+        && adapter && adapter->isMali()
+        && isBcnFormat(format);
   }
 
 }
