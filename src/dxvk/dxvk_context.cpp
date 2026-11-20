@@ -8,7 +8,6 @@
 #include "dxvk_device.h"
 #include "dxvk_context.h"
 #include "dxvk_format.h"
-#include "dxvk_meta_bcn.h"
 #include "dxvm_mali/dxvm_mali_format_policy.h"
 #include "dxvm_mali/dxvm_mali_bcn_transcoder.h"
 
@@ -6076,7 +6075,8 @@ namespace dxvk {
     // format is already ASTC/RGBA8. Gate on the remembered original BCn format.
     VkFormat bcnFormat = image->info().bcnSourceFormat;
     if (allowBcnTranscode && dxvmIsBcnFormat(bcnFormat)
-     && m_device->adapter()->isMali()) {
+     && m_device->adapter()->isMali()
+     && m_device->maliConfig().enableBcnTranscoding) {
       uploadImageBcnTranscode(image, source, sourceOffset, subresourceAlignment);
       return;
     }
@@ -6128,27 +6128,84 @@ namespace dxvk {
           VkDeviceSize              sourceOffset,
           VkDeviceSize              subresourceAlignment) {
     VkFormat bcnFormat = image->info().bcnSourceFormat;
-    if (!dxvmIsBcnFormat(bcnFormat)) {
-      uploadImageHw(image, source, sourceOffset, subresourceAlignment, false);
+    if (!dxvmIsBcnFormat(bcnFormat))
       return;
-    }
 
-    // Transcode BCn -> RGBA8 into a staging buffer matching the image format.
+    // Never fall back to a raw copy: the image was created in a remapped
+    // format (ASTC or RGBA8), so BCn bytes would be reinterpreted as the
+    // wrong format. Clear to an obvious sentinel and report the failure.
+    auto fail = [&]() {
+      Logger::err("DXVM: BCn transcode failed; clearing image to error sentinel");
+
+      // Compressed images cannot be cleared with vkCmdClearColorImage on all
+      // drivers; zero the backing allocation via the existing helper instead.
+      if (image->formatInfo()->flags.test(DxvkFormatFlag::BlockCompressed)) {
+        initImage(image, VK_IMAGE_LAYOUT_UNDEFINED);
+        return;
+      }
+
+      VkImageSubresourceRange subresources = image->getAvailableSubresources();
+      VkImageLayout clearLayout = image->pickLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+      addImageInitTransition(*image, subresources, clearLayout,
+        VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+      flushImageLayoutTransitions(DxvkCmdBuffer::InitBuffer);
+
+      VkClearColorValue sentinel = { };
+      sentinel.float32[0] = 1.f;
+      sentinel.float32[1] = 0.f;
+      sentinel.float32[2] = 1.f;
+      sentinel.float32[3] = 1.f;
+
+      m_cmd->cmdClearColorImage(DxvkCmdBuffer::InitBuffer,
+        image->handle(), clearLayout, &sentinel, 1u, &subresources);
+
+      accessImage(DxvkCmdBuffer::InitBuffer, *image, subresources, clearLayout,
+        VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT, DxvkAccessOp::None);
+      image->trackLayout(subresources, image->info().layout);
+      m_cmd->track(image, DxvkAccess::Write);
+    };
+
+    // Transcode every mip level and array layer into one RGBA8 staging buffer.
+    // Source offsets follow the BCn subresource stride; destination offsets
+    // follow the RGBA8 stride, both padded to the upload alignment.
+    const uint32_t mipLevels = image->info().mipLevels;
+    const uint32_t numLayers = image->info().numLayers;
+    const VkDeviceSize stagingSize = dxvmBcnStagingSize(
+      image->info().extent, mipLevels, numLayers, subresourceAlignment);
+
     DxvkBufferCreateInfo stagingInfo = { };
-    stagingInfo.size = VkDeviceSize(image->info().extent.width) * image->info().extent.height * 4u;
+    stagingInfo.size = stagingSize;
     stagingInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     stagingInfo.stages = VK_PIPELINE_STAGE_TRANSFER_BIT;
     stagingInfo.access = VK_ACCESS_TRANSFER_READ_BIT;
     Rc<DxvkBuffer> staging = m_device->createBuffer(stagingInfo,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    VkExtent3D fullExtent = image->mipLevelExtent(0);
-    VkResult vr = m_device->bcnTranscoder().transcode(source, sourceOffset, bcnFormat, staging, 0,
-      fullExtent.width, fullExtent.height);
-    if (vr != VK_SUCCESS) {
-      Logger::err("DXVM: BCn transcode failed: " + std::to_string(vr));
-      uploadImageHw(image, source, sourceOffset, subresourceAlignment, false);
-      return;
+    for (uint32_t m = 0u; m < mipLevels; m++) {
+      for (uint32_t l = 0u; l < numLayers; l++) {
+        DxvmBcnSubresourceLayout sub = dxvmBcnSubresourceAt(
+          bcnFormat, image->info().extent, mipLevels, numLayers,
+          sourceOffset, subresourceAlignment, subresourceAlignment, m, l);
+
+        if (!sub.valid) {
+          Logger::err("DXVM: invalid BCn subresource layout (mip " + std::to_string(m)
+            + ", layer " + std::to_string(l) + ")");
+          fail();
+          return;
+        }
+
+        VkResult vr = m_device->bcnTranscoder().transcode(
+          source, sub.srcOffset, bcnFormat, staging, sub.dstOffset,
+          sub.extent.width, sub.extent.height);
+
+        if (vr != VK_SUCCESS) {
+          Logger::err("DXVM: BCn transcode failed (mip " + std::to_string(m)
+            + ", layer " + std::to_string(l) + "): " + std::to_string(vr));
+          fail();
+          return;
+        }
+      }
     }
 
     // Upload the transcoded RGBA8 data using the normal hardware path,
@@ -6158,15 +6215,23 @@ namespace dxvk {
       transferLayout, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
     flushImageLayoutTransitions(DxvkCmdBuffer::SdmaBuffer);
 
-    VkImageSubresourceLayers layers = { };
-    layers.aspectMask = image->formatInfo()->aspectMask;
-    layers.mipLevel = 0;
-    layers.baseArrayLayer = 0;
-    layers.layerCount = image->info().numLayers;
+    for (uint32_t m = 0u; m < mipLevels; m++) {
+      for (uint32_t l = 0u; l < numLayers; l++) {
+        DxvmBcnSubresourceLayout sub = dxvmBcnSubresourceAt(
+          bcnFormat, image->info().extent, mipLevels, numLayers,
+          sourceOffset, subresourceAlignment, subresourceAlignment, m, l);
 
-    copyImageBufferData<true>(DxvkCmdBuffer::SdmaBuffer,
-      image, layers, VkOffset3D { 0, 0, 0 }, image->mipLevelExtent(0), transferLayout,
-      staging->getSliceInfo(0, stagingInfo.size), 0, 0);
+        VkImageSubresourceLayers layers = { };
+        layers.aspectMask = image->formatInfo()->aspectMask;
+        layers.mipLevel = m;
+        layers.baseArrayLayer = l;
+        layers.layerCount = 1u;
+
+        copyImageBufferData<true>(DxvkCmdBuffer::SdmaBuffer,
+          image, layers, VkOffset3D { 0, 0, 0 }, sub.extent, transferLayout,
+          staging->getSliceInfo(sub.dstOffset, sub.dstSize), 0, 0);
+      }
+    }
 
     accessImageTransfer(*image, image->getAvailableSubresources(), transferLayout,
       VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);

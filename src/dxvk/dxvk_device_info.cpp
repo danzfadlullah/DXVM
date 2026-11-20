@@ -823,7 +823,7 @@ namespace dxvk {
     dxvmMaliChainFeatures(
       m_properties.vk12.driverID == VK_DRIVER_ID_ARM_PROPRIETARY
    || m_properties.vk12.driverID == VK_DRIVER_ID_MESA_PANVK,
-      const_cast<DxvkDeviceExtensionInfo&>(extensions), features);
+      extensions, features);
 
     #undef HANDLE_CORE
     #undef HANDLE_EXT

@@ -1509,6 +1509,13 @@ namespace dxvk {
     info.layout                   = layout->getPipelineLayout();
     info.basePipelineIndex        = -1;
 
+    // State emulation must see the viewport state, so publish it before
+    // invoking the helper. Rasterizer-discard pipelines keep the upstream
+    // null viewport state.
+    const bool hasViewportState = !m_flags.test(DxvkGraphicsPipelineFlag::HasRasterizerDiscard);
+    if (hasViewportState)
+      info.pViewportState = &key.prState.vpInfo;
+
     DxvmMaliEmulatedState maliState;
     dxvmMaliEmulateGraphicsState(m_device->adapter()->isMali(), info, maliState);
     if (maliState.hasRaster)
@@ -1516,14 +1523,14 @@ namespace dxvk {
     if (key.prState.tsInfo.patchControlPoints)
       info.pTessellationState     = &key.prState.tsInfo;
 
-    if (!m_flags.test(DxvkGraphicsPipelineFlag::HasRasterizerDiscard)) {
+    if (hasViewportState) {
       // Use dynamic rendering when preferred and supported (Vulkan 1.3+)
       if (m_device->perfHints().preferDynamicRendering
        && m_device->features().vk13.dynamicRendering) {
         info.pNext = &key.foState.rtInfo;
       }
-      info.pViewportState         = m_device->adapter()->isMali() && maliState.viewportCount
-        ? &maliState.vpInfo : &key.prState.vpInfo;
+      if (m_device->adapter()->isMali() && maliState.viewportCount)
+        info.pViewportState = &maliState.vpInfo;
       info.pMultisampleState      = &key.foState.msInfo;
       info.pDepthStencilState     = &key.fsState.dsInfo;
       info.pColorBlendState       = &key.foState.cbInfo;

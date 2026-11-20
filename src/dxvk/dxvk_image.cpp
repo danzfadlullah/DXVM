@@ -265,11 +265,14 @@ namespace dxvk {
     std::unique_lock lock(m_viewMutex);
 
     // On Mali, BCn images are created as ASTC/RGBA8. Views built from the
-    // original BCn format would be incompatible with the image, so use the
-    // image's actual format whenever the requested format is a BCn format.
+    // original BCn format would be incompatible with the image, so map the
+    // requested format to the image's actual format. Derive the matching
+    // color-space variant so sRGB requests do not collapse to linear.
     DxvkImageViewKey viewInfo = info;
-    if (dxvmIsBcnFormat(viewInfo.format) && viewInfo.format != m_info.format)
-      viewInfo.format = m_info.format;
+    if (dxvmIsBcnFormat(m_info.bcnSourceFormat)
+     && dxvmIsBcnFormat(viewInfo.format)
+     && viewInfo.format != m_info.format)
+      viewInfo.format = dxvmMaliRemapViewFormat(viewInfo.format, m_info.format);
 
     auto entry = m_views.emplace(std::piecewise_construct,
       std::make_tuple(viewInfo), std::make_tuple(this, viewInfo));

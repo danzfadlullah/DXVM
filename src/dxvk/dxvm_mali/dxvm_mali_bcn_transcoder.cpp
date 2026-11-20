@@ -27,6 +27,10 @@ namespace dxvk {
     if (!info || !dxvmIsBcnFormat(bcnFormat))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
+    // Never map or read past the end of a truncated / malformed source buffer.
+    if (srcOffset > src->info().size || dstOffset > dst->info().size)
+      return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+
     void* srcPtr = src->mapPtr(srcOffset);
     void* dstPtr = dst->mapPtr(dstOffset);
     VkDeviceSize available = src->info().size - srcOffset;

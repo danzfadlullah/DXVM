@@ -26,7 +26,7 @@ namespace dxvk {
     }
   }
 
-  static bool isSrgbBcn(VkFormat f) {
+  bool dxvmIsSrgbBcnFormat(VkFormat f) {
     switch (f) {
       case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
       case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
@@ -39,11 +39,12 @@ namespace dxvk {
     }
   }
 
-  VkFormat dxvmMaliRemapFormat(bool isMali, bool useCpuBcn, VkFormat format) {
-    if (!isMali || !dxvmIsBcnFormat(format))
+  VkFormat dxvmMaliRemapFormat(bool isMali, bool useCpuBcn,
+                               bool enableBcnTranscoding, VkFormat format) {
+    if (!isMali || !enableBcnTranscoding || !dxvmIsBcnFormat(format))
       return format;
 
-    bool srgb = isSrgbBcn(format);
+    bool srgb = dxvmIsSrgbBcnFormat(format);
 
     // CPU fallback: image must be RGBA8 to match the CPU decoder output.
     if (useCpuBcn)
@@ -75,6 +76,31 @@ namespace dxvk {
 
       default:
         return format;
+    }
+  }
+
+  VkFormat dxvmMaliRemapViewFormat(VkFormat requestedViewFormat, VkFormat imageFormat) {
+    if (!dxvmIsBcnFormat(requestedViewFormat) || requestedViewFormat == imageFormat)
+      return requestedViewFormat;
+
+    const bool srgb = dxvmIsSrgbBcnFormat(requestedViewFormat);
+
+    if (srgb) {
+      switch (imageFormat) {
+        case VK_FORMAT_R8G8B8A8_UNORM:        return VK_FORMAT_R8G8B8A8_SRGB;
+        case VK_FORMAT_B8G8R8A8_UNORM:        return VK_FORMAT_B8G8R8A8_SRGB;
+        case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:  return VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
+        case VK_FORMAT_ASTC_6x6_UNORM_BLOCK:  return VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
+        default:                              return imageFormat;
+      }
+    } else {
+      switch (imageFormat) {
+        case VK_FORMAT_R8G8B8A8_SRGB:         return VK_FORMAT_R8G8B8A8_UNORM;
+        case VK_FORMAT_B8G8R8A8_SRGB:         return VK_FORMAT_B8G8R8A8_UNORM;
+        case VK_FORMAT_ASTC_4x4_SRGB_BLOCK:   return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;
+        case VK_FORMAT_ASTC_6x6_SRGB_BLOCK:   return VK_FORMAT_ASTC_6x6_UNORM_BLOCK;
+        default:                              return imageFormat;
+      }
     }
   }
 

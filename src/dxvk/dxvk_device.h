@@ -153,6 +153,14 @@ namespace dxvk {
     const DxvkOptions& config() const {
       return m_options;
     }
+
+    /**
+     * \brief Mali-specific configuration
+     * \returns Parsed DXVM Mali options
+     */
+    const DxvmMaliConfig& maliConfig() const {
+      return m_maliConfig;
+    }
     
     /**
      * \brief Queue handles

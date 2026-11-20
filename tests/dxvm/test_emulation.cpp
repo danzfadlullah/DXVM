@@ -20,6 +20,7 @@ int main() {
   VkViewport viewport{};
   VkPipelineViewportStateCreateInfo vs{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
   vs.viewportCount = 4;
+  vs.scissorCount = 4;
   vs.pViewports = &viewport;
   VkGraphicsPipelineCreateInfo gp{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
   gp.pRasterizationState = &rs;
@@ -38,6 +39,10 @@ int main() {
   CHECK(out.cbInfo.logicOpEnable == VK_FALSE);
   CHECK(out.cbInfo.pAttachments[0].srcColorBlendFactor == VK_BLEND_FACTOR_SRC_ALPHA);
   CHECK(out.viewportCount == 1);
+  CHECK(out.vpInfo.viewportCount == 1);
+  CHECK(out.vpInfo.scissorCount <= 1);
+  CHECK(out.vpInfo.pViewports != nullptr);
+  CHECK(out.vpInfo.pScissors == &out.scissor);
 
   if (failures) { std::fprintf(stderr, "%d check(s) failed\n", failures); return 1; }
   std::printf("test_emulation: OK\n");

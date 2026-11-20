@@ -744,7 +744,8 @@ namespace dxvk {
 
 
   VkFormat DxvkDevice::remapMaliFormat(VkFormat format) const {
-    return dxvmMaliRemapFormat(m_adapter->isMali(), m_bcnTranscoder.useCpuFallback(), format);
+    return dxvmMaliRemapFormat(m_adapter->isMali(),
+      m_bcnTranscoder.useCpuFallback(), m_maliConfig.enableBcnTranscoding, format);
   }
 
 

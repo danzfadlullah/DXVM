@@ -3,6 +3,7 @@
 #include "../dxvk_include.h"
 #include "../dxvk_buffer.h"
 #include "bcndecode/bcn_decode.h"
+#include "dxvm_mali_bcn_layout.h"
 
 namespace dxvk {
 

@@ -37,6 +37,7 @@ MODULE_SOURCES=(
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_features.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_hint_flags.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_format_policy.cpp"
+  "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_bcn_layout.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/bcndecode/bcn_decode.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_state_emulation.cpp"
   "$SRC_DIR/dxvk/dxvm_mali/dxvm_mali_vendor.cpp"

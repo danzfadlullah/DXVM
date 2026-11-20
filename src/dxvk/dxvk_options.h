@@ -94,10 +94,6 @@ namespace dxvk {
     std::string deviceFilter;
 
     // Mali-specific options
-    /// Enable dynamic rendering (VK_KHR_dynamic_rendering)
-    bool enableDynamicRendering = true;
-    /// Enable FP16 shader arithmetic (VK_KHR_shader_float16_int8)
-    bool enableFP16Shaders = true;
     /// Enable INT8 shader arithmetic (VK_KHR_shader_float16_int8)
     bool enableINT8Shaders = true;
     /// Enable descriptor indexing (VK_EXT_descriptor_indexing)

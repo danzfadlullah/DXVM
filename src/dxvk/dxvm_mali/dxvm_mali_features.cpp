@@ -4,7 +4,7 @@ namespace dxvk {
 
   void dxvmMaliChainFeatures(
           bool                    isMali,
-          DxvkDeviceExtensionInfo&  extensions,
+          const DxvkDeviceExtensionInfo& extensions,
           DxvkDeviceFeatures&       features) {
     // Non-Mali: strict no-op — upstream feature table stays authoritative.
     if (!isMali)
