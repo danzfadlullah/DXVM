@@ -15,6 +15,7 @@ namespace dxvmt {
   // Scene group registrars. Each group lives in its own translation unit and is
   // a no-op when the host cannot build Direct3D code.
   void registerDeviceScenes(Registry& registry);
+  void registerMsaaScenes(Registry& registry);
 
 }
 
@@ -101,6 +102,7 @@ int main(int argc, char** argv) {
   Registry registry;
   registerSelfTestScenes(registry);
   registerDeviceScenes(registry);
+  registerMsaaScenes(registry);
 
   // Child mode must run before anything else: it exists to be isolated.
   std::string childScene;
