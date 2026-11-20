@@ -1,4 +1,5 @@
 #include "Child.h"
+#include "Device.h"
 #include "Registry.h"
 #include "Report.h"
 #include "SelfTestScenes.h"
@@ -8,6 +9,14 @@
 #include <ctime>
 #include <string>
 #include <vector>
+
+namespace dxvmt {
+
+  // Scene group registrars. Each group lives in its own translation unit and is
+  // a no-op when the host cannot build Direct3D code.
+  void registerDeviceScenes(Registry& registry);
+
+}
 
 namespace {
 
@@ -90,8 +99,8 @@ int main(int argc, char** argv) {
   }
 
   Registry registry;
-  // Later tasks add their Direct3D groups here.
   registerSelfTestScenes(registry);
+  registerDeviceScenes(registry);
 
   // Child mode must run before anything else: it exists to be isolated.
   std::string childScene;
@@ -132,8 +141,9 @@ int main(int argc, char** argv) {
 
   const auto selected = registry.select(effectiveScenes);
 
-  std::string report = formatHeader(timestampNow(), kHarnessVersion,
-    kHarnessCode, 0, 0);
+  struct Row { std::string name; SceneResult result; };
+  std::vector<Row> rows;
+  rows.reserve(selected.size());
 
   int passed = 0, failed = 0;
 
@@ -146,7 +156,20 @@ int main(int argc, char** argv) {
     else if (result.status != SceneStatus::Skip)
       failed++;
 
-    report += formatResult(entry.name, result);
+    rows.push_back(Row{ entry.name, result });
+  }
+
+  // The header carries the final totals, so it is emitted after the run.
+  std::string report = formatHeader(timestampNow(), kHarnessVersion,
+    kHarnessCode, passed, failed);
+
+#ifdef _WIN32
+  report += "GPU: " + describeGpu() + "\n";
+  report += "\n";
+#endif
+
+  for (const auto& row : rows) {
+    report += formatResult(row.name, row.result);
     report += '\n';
   }
 

@@ -27,6 +27,7 @@ CORE_SOURCES=(
   "$HARNESS_DIR/src/Registry.cpp"
   "$HARNESS_DIR/src/Child.cpp"
   "$HARNESS_DIR/src/SelfTestScenes.cpp"
+  "$HARNESS_DIR/src/Device.cpp"
 )
 
 BUILD_DIR="$(mktemp -d)"

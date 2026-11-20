@@ -14,10 +14,24 @@ dxvm_harness_src = files(
   'src/Registry.cpp',
   'src/Child.cpp',
   'src/SelfTestScenes.cpp',
+  'src/Device.cpp',
+  'src/scenes/DeviceScenes.cpp',
   'src/main.cpp',
 )
+
+# The harness is linked against the Direct3D import libraries. At runtime it
+# picks up whichever d3d11.dll / dxgi.dll / d3d10core.dll / d3d9.dll sit next to
+# the executable, which is how it runs against DXVM rather than the system DLLs.
+#
+# d3d10core is deliberately absent: mingw-w64 ships no libd3d10core.a, so the
+# D3D10 suite loads d3d10core.dll with LoadLibrary/GetProcAddress instead.
+dxvm_harness_libs = []
+foreach name : [ 'd3d11', 'dxgi', 'd3d9' ]
+  dxvm_harness_libs += [ '-l' + name ]
+endforeach
 
 dxvm_harness_exe = executable('dxvm-harness', dxvm_harness_src,
   include_directories : dxvm_harness_inc,
   cpp_args            : [ '-DNOMINMAX', '-D_WIN32_WINNT=0xa00' ],
+  link_args           : dxvm_harness_libs,
   install             : false)
