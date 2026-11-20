@@ -21,6 +21,9 @@ namespace dxvk {
     
     /// Pixel format
     VkFormat format = VK_FORMAT_UNDEFINED;
+
+    /// Original BCn format before Mali remap (VK_FORMAT_UNDEFINED if none)
+    VkFormat bcnSourceFormat = VK_FORMAT_UNDEFINED;
     
     /// Flags
     VkImageCreateFlags flags = 0u;

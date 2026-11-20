@@ -523,6 +523,7 @@ namespace dxvk {
       imageInfo.debugName = debugName.c_str();
     }
 
+    imageInfo.bcnSourceFormat = imageInfo.format;
     imageInfo.format = m_device->GetDXVKDevice()->remapMaliFormat(imageInfo.format);
     return m_device->GetDXVKDevice()->createImage(imageInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   }

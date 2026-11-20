@@ -9,6 +9,8 @@
 #include "dxvk_context.h"
 #include "dxvk_format.h"
 #include "dxvk_meta_bcn.h"
+#include "dxvm_mali/dxvm_mali_format_policy.h"
+#include "dxvm_mali/dxvm_mali_bcn_transcoder.h"
 
 namespace dxvk {
   
@@ -6126,29 +6128,54 @@ namespace dxvk {
     const Rc<DxvkBuffer>&           source,
           VkDeviceSize              sourceOffset,
           VkDeviceSize              subresourceAlignment) {
-    VkFormat imageFormat = image->info().format;
-
-    // Look up the transcoder pipeline for this BCn format
-    auto& bcnObjects = m_common->metaBcnTranscode();
-    DxvkMetaBcnTranscodePipeline bcnPipeline = bcnObjects.getPipeline(imageFormat);
-
-    if (!bcnPipeline.pipeline) {
-      Logger::err("DXVM: BCn transcoder pipeline unavailable for format "
-        + std::to_string(imageFormat) + "; falling back to direct upload");
+    VkFormat bcnFormat = image->info().bcnSourceFormat;
+    if (!dxvmIsBcnFormat(bcnFormat)) {
       uploadImageHw(image, source, sourceOffset, subresourceAlignment, false);
       return;
     }
 
-    Logger::info("DXVM: BCn transcoding " + std::to_string(imageFormat)
-      + " -> " + std::to_string(getBcnTranscodeFormat(imageFormat)));
+    const DxvkFormatInfo* bcnInfo = lookupFormatInfo(bcnFormat);
+    VkDeviceSize bcnSize = source->getSliceInfo(sourceOffset, 0).size;
 
-    // Full GPU compute-based transcoding requires descriptor set wiring into the
-    // context's transient descriptor allocator. Until that is available, keep
-    // correctness by routing through the standard upload path. The pipeline and
-    // shader infrastructure above is ready for the compute dispatch integration.
-    uploadImageHw(image, source, sourceOffset, subresourceAlignment, false);
+    // Transcode BCn -> RGBA8 into a staging buffer matching the image format.
+    DxvkBufferCreateInfo stagingInfo = { };
+    stagingInfo.size = bcnSize / bcnInfo->elementSize * 64u;
+    stagingInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingInfo.stages = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    stagingInfo.access = VK_ACCESS_TRANSFER_READ_BIT;
+    Rc<DxvkBuffer> staging = m_device->createBuffer(stagingInfo,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    VkResult vr = m_device->bcnTranscoder().transcode(source, sourceOffset, bcnFormat, staging, 0);
+    if (vr != VK_SUCCESS) {
+      Logger::err("DXVM: BCn transcode failed: " + std::to_string(vr));
+      uploadImageHw(image, source, sourceOffset, subresourceAlignment, false);
+      return;
+    }
+
+    // Upload the transcoded RGBA8 data using the normal hardware path,
+    // bypassing BCn detection to avoid recursion.
+    VkImageLayout transferLayout = image->pickLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    addImageInitTransition(*image, image->getAvailableSubresources(),
+      transferLayout, VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+    flushImageLayoutTransitions(DxvkCmdBuffer::SdmaBuffer);
+
+    VkImageSubresourceLayers layers = { };
+    layers.aspectMask = image->formatInfo()->aspectMask;
+    layers.mipLevel = 0;
+    layers.baseArrayLayer = 0;
+    layers.layerCount = image->info().numLayers;
+
+    copyImageBufferData<true>(DxvkCmdBuffer::SdmaBuffer,
+      image, layers, VkOffset3D { 0, 0, 0 }, image->mipLevelExtent(0), transferLayout,
+      staging->getSliceInfo(0, stagingInfo.size), 0, 0);
+
+    accessImageTransfer(*image, image->getAvailableSubresources(), transferLayout,
+      VK_PIPELINE_STAGE_2_TRANSFER_BIT, VK_ACCESS_2_TRANSFER_WRITE_BIT);
+    image->trackLayout(image->getAvailableSubresources(), image->info().layout);
+    m_cmd->track(source, DxvkAccess::Read);
+    m_cmd->track(image, DxvkAccess::Write);
   }
-
 
   void DxvkContext::beginRenderPass() {
     if (!m_flags.test(DxvkContextFlag::GpRenderPassActive)) {

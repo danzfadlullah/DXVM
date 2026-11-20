@@ -744,9 +744,7 @@ namespace dxvk {
 
 
   VkFormat DxvkDevice::remapMaliFormat(VkFormat format) const {
-    // useCpuBcn is decided once by the transcoder; until Task 5 wires it,
-    // assume GPU dispatch is available on Mali (the common case).
-    return dxvmMaliRemapFormat(m_adapter->isMali(), false, format);
+    return dxvmMaliRemapFormat(m_adapter->isMali(), m_bcnTranscoder.useCpuFallback(), format);
   }
 
 

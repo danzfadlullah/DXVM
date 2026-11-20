@@ -15,6 +15,7 @@
 #include "dxvk_objects.h"
 #include "dxvk_options.h"
 #include "dxvm_mali/dxvm_mali_config.h"
+#include "dxvm_mali/dxvm_mali_bcn_transcoder.h"
 #include "dxvk_pipemanager.h"
 #include "dxvk_presenter.h"
 #include "dxvk_queue.h"
@@ -237,6 +238,8 @@ namespace dxvk {
      * Non-Mali devices return the format unchanged.
      */
     VkFormat remapMaliFormat(VkFormat format) const;
+
+    DxvmBcnTranscoder& bcnTranscoder() { return m_bcnTranscoder; }
 
     /**
      * \brief Queries format limits
@@ -756,6 +759,7 @@ namespace dxvk {
 
     DxvkOptions                 m_options;
     DxvmMaliConfig              m_maliConfig;
+    DxvmBcnTranscoder           m_bcnTranscoder;
 
     Rc<DxvkInstance>            m_instance;
     Rc<DxvkAdapter>             m_adapter;

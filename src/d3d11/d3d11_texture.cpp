@@ -239,6 +239,7 @@ namespace dxvk {
     if (m_11on12.Resource != nullptr)
       vkImage = VkImage(m_11on12.VulkanHandle);
 
+    imageInfo.bcnSourceFormat = imageInfo.format;
     imageInfo.format = m_device->GetDXVKDevice()->remapMaliFormat(imageInfo.format);
 
     if (!vkImage)
