@@ -42,6 +42,7 @@ namespace dxvk {
       if (out.cbInfo.pAttachments && n) {
         std::memcpy(out.attachments, out.cbInfo.pAttachments,
                     n * sizeof(VkPipelineColorBlendAttachmentState));
+        out.cbInfo.attachmentCount = n;
         for (uint32_t i = 0; i < n; i++) {
           auto& a = out.attachments[i];
           if (isDualSourceFactor(a.srcColorBlendFactor)) a.srcColorBlendFactor = clampFactor(a.srcColorBlendFactor);
@@ -54,8 +55,18 @@ namespace dxvk {
       out.hasBlend = true;
     }
 
-    uint32_t requested = pipelineInfo.pViewportState ? pipelineInfo.pViewportState->viewportCount : 1u;
-    out.viewportCount = requested > 1u ? 1u : requested;
+    if (pipelineInfo.pViewportState) {
+      out.vpInfo = *pipelineInfo.pViewportState;
+      out.viewportCount = out.vpInfo.viewportCount > 1u ? 1u : out.vpInfo.viewportCount;
+      out.vpInfo.viewportCount = out.viewportCount;
+      if (out.vpInfo.scissorCount > out.viewportCount)
+        out.vpInfo.scissorCount = out.viewportCount;
+      // Provide a single viewport/scissor if driver requires concrete state.
+      out.viewport = { 0.f, 0.f, 1.f, 1.f, 0.f, 1.f };
+      out.scissor = { {0,0}, {1,1} };
+      if (out.vpInfo.viewportCount && !out.vpInfo.pViewports) out.vpInfo.pViewports = &out.viewport;
+      if (out.vpInfo.scissorCount && !out.vpInfo.pScissors) out.vpInfo.pScissors = &out.scissor;
+    }
   }
 
 }
