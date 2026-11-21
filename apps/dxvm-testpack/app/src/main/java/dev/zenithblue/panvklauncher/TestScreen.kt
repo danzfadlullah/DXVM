@@ -94,6 +94,31 @@ fun TestScreen(onOpenComponents: () -> Unit) {
             ) { Text("Components") }
         }
 
+        // Never the default: the value of this app is the system-driver measurement. Worth
+        // pressing only when the owner has installed PanVK and a stock DXVK to compare against.
+        OutlinedButton(
+            onClick = {
+                running = true
+                report = null
+                progress = emptyList()
+                scope.launch {
+                    try {
+                        val text = runComparison(ctx, ::addProgress)
+                        report = text
+                        runCatching {
+                            File(ctx.filesDir, "dxvm-testpack-comparison.txt").writeText(text)
+                        }
+                    } catch (t: Throwable) {
+                        addProgress("Comparison failed: ${t.message}")
+                    } finally {
+                        running = false
+                    }
+                }
+            },
+            enabled = !running,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) { Text("Compare: system+DXVM vs PanVK+DXVK (optional)") }
+
         if (running) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CircularProgressIndicator()

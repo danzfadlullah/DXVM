@@ -125,6 +125,29 @@ object DxvmComponent {
      * PanPlay's own picker happens to choose first.
      */
     fun copyIntoPrefix(ctx: Context, componentDir: File): Result<Unit> {
+        copyAnyIntoPrefix(ctx, componentDir).onFailure { return Result.failure(it) }
+        val windows = windowsDir(ctx)
+        return try {
+            val version = versionOf(componentDir)
+                ?: return Result.failure(IllegalStateException(
+                    "component in ${componentDir.name} carries no DXVM marker"))
+            if (!provesDxvmInPrefix(windows)) {
+                return Result.failure(IllegalStateException(
+                    "prefix still has no DXVM marker after copying DXVM $version"))
+            }
+            Result.success(Unit)
+        } catch (t: Throwable) {
+            Result.failure(IllegalStateException("could not copy DXVM into the prefix: ${t.message}", t))
+        }
+    }
+
+    /**
+     * Copies any DXVK component's DLLs into the prefix without demanding DXVM's marker.
+     *
+     * Used by the explicit comparison run, which deliberately puts a *stock* DXVK in the prefix
+     * to produce the baseline column. Nothing on the default path calls this.
+     */
+    fun copyAnyIntoPrefix(ctx: Context, componentDir: File): Result<Unit> {
         val windows = windowsDir(ctx)
         if (!File(windows, "system32").isDirectory) {
             return Result.failure(IllegalStateException(
@@ -139,16 +162,9 @@ object DxvmComponent {
                     if (f.isFile) f.copyTo(File(dst, f.name), overwrite = true)
                 }
             }
-            val version = versionOf(componentDir)
-                ?: return Result.failure(IllegalStateException(
-                    "component in ${componentDir.name} carries no DXVM marker"))
-            if (!provesDxvmInPrefix(windows)) {
-                return Result.failure(IllegalStateException(
-                    "prefix still has no DXVM marker after copying DXVM $version"))
-            }
             Result.success(Unit)
         } catch (t: Throwable) {
-            Result.failure(IllegalStateException("could not copy DXVM into the prefix: ${t.message}", t))
+            Result.failure(IllegalStateException("could not copy the component into the prefix: ${t.message}", t))
         }
     }
 
