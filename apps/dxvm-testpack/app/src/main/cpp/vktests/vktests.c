@@ -33,8 +33,12 @@ static int init(char *detail) {
   ci.pApplicationInfo = &app;
 
   if (vkCreateInstance(&ci, NULL, &g_instance) != VK_SUCCESS) {
-    snprintf(detail, DETAIL_MAX, "cannot create a Vulkan instance");
-    return 1;
+    /* A Vulkan 1.0-only driver refuses a 1.1 instance; retry before giving up. */
+    app.apiVersion = VK_API_VERSION_1_0;
+    if (vkCreateInstance(&ci, NULL, &g_instance) != VK_SUCCESS) {
+      snprintf(detail, DETAIL_MAX, "cannot create a Vulkan instance");
+      return 1;
+    }
   }
 
   uint32_t count = 0;
@@ -191,6 +195,95 @@ int vktests_run(const char *name, char *detail, int detail_len) {
   }
   if (g_instance) { vkDestroyInstance(g_instance, NULL); g_instance = VK_NULL_HANDLE; }
   return rc;
+}
+
+/* ---- identity of the device under test ------------------------------------
+ *
+ * The report's headline comes from here: which driver actually answered. The
+ * KOTLIN side decides what that identity *means* (system vs PanVK); this only
+ * reports what Vulkan says, so a wrong verdict is a Kotlin bug, not a C one.
+ *
+ * Output shape (single line, '|'-separated, no '|' inside the values):
+ *   vendorId|apiVersion|driverId|deviceName|driverName|driverInfo|driverVersion
+ * driverId is the VK_DRIVER_ID_* spelling where known, else the numeric value.
+ */
+#define IDENTITY_MAX 1024
+
+static void copy_field(char *dst, size_t dst_len, const char *src) {
+  if (!dst_len) return;
+  size_t n = 0;
+  while (src && src[n] && n + 1 < dst_len) {
+    /* '|' and newlines would break the wire format. */
+    dst[n] = (src[n] == '|' || src[n] == '\n' || src[n] == '\r') ? ' ' : src[n];
+    n++;
+  }
+  dst[n] = 0;
+}
+
+static const char *driver_id_name(VkDriverId id) {
+  switch (id) {
+    case VK_DRIVER_ID_ARM_PROPRIETARY:         return "VK_DRIVER_ID_ARM_PROPRIETARY";
+    case VK_DRIVER_ID_MESA_PANVK:              return "VK_DRIVER_ID_MESA_PANVK";
+    case VK_DRIVER_ID_MESA_LLVMPIPE:           return "VK_DRIVER_ID_MESA_LLVMPIPE";
+    case VK_DRIVER_ID_MESA_TURNIP:             return "VK_DRIVER_ID_MESA_TURNIP";
+    case VK_DRIVER_ID_MESA_RADV:               return "VK_DRIVER_ID_MESA_RADV";
+    case VK_DRIVER_ID_MESA_VENUS:              return "VK_DRIVER_ID_MESA_VENUS";
+    case VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA:  return "VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA";
+    case VK_DRIVER_ID_QUALCOMM_PROPRIETARY:    return "VK_DRIVER_ID_QUALCOMM_PROPRIETARY";
+    case VK_DRIVER_ID_IMAGINATION_PROPRIETARY: return "VK_DRIVER_ID_IMAGINATION_PROPRIETARY";
+    default:                                   return "";
+  }
+}
+
+/* Fills `out` with the identity line. Returns 0 when a device was read. */
+int vktests_identity(char *out, int out_len) {
+  char err[DETAIL_MAX] = {0};
+  char driver_id[64] = "";
+  char device_name[256] = "";
+  char driver_name[256] = "";
+  char driver_info[256] = "";
+  unsigned vendor = 0, api = 0;
+  unsigned long long driver_version = 0;
+
+  if (out == NULL || out_len <= 0) return 1;
+  if (init(err) != 0) {
+    snprintf(out, (size_t)out_len, "0|0||%s|||0", err);
+    return 1;
+  }
+
+  vendor = g_props.vendorID;
+  api = g_props.apiVersion;
+  driver_version = (unsigned long long)g_props.driverVersion;
+  copy_field(device_name, sizeof(device_name), g_props.deviceName);
+
+  /* VK_EXT_driver_properties / Vulkan 1.1+: the driver's own id and version string. */
+  if (api >= VK_API_VERSION_1_1) {
+    VkPhysicalDeviceDriverProperties dp;
+    VkPhysicalDeviceProperties2 p2;
+    memset(&dp, 0, sizeof(dp));
+    memset(&p2, 0, sizeof(p2));
+    dp.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+    p2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+    p2.pNext = &dp;
+    vkGetPhysicalDeviceProperties2(g_physical, &p2);
+    copy_field(driver_id, sizeof(driver_id), driver_id_name(dp.driverID));
+    if (driver_id[0] == 0) snprintf(driver_id, sizeof(driver_id), "%d", (int)dp.driverID);
+    copy_field(driver_name, sizeof(driver_name), dp.driverName);
+    copy_field(driver_info, sizeof(driver_info), dp.driverInfo);
+  }
+
+  snprintf(out, (size_t)out_len, "%u|%u|%s|%s|%s|%s|%llu",
+    vendor, api, driver_id, device_name, driver_name, driver_info, driver_version);
+
+  if (g_instance) { vkDestroyInstance(g_instance, NULL); g_instance = VK_NULL_HANDLE; }
+  return 0;
+}
+
+/* Test inventory, so the app cannot drift from the suites the host script runs. */
+int vktests_count(void) { return (int)NTESTS; }
+
+const char *vktests_name(int i) {
+  return (i >= 0 && i < (int)NTESTS) ? TESTS[i].name : NULL;
 }
 
 /* Host build entry: run everything and print DXML-shaped lines. */

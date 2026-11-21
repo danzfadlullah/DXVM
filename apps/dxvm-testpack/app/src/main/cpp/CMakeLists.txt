@@ -8,6 +8,16 @@ add_library(panvklauncher SHARED
 target_compile_options(panvklauncher PRIVATE -w -O2 -fvisibility=default)
 target_link_libraries(panvklauncher PRIVATE log dl)
 
+# Vulkan capability suite (re-implemented from PanProbe's MIT tests, see NOTICE.md).
+# VKTESTS_NO_MAIN drops the host script's main(): the library is driven from Kotlin.
+add_library(vktests SHARED
+    vktests/vktests.c
+    vktests/vktests_jni.c
+)
+target_compile_definitions(vktests PRIVATE VKTESTS_NO_MAIN)
+target_compile_options(vktests PRIVATE -O2 -Wall -Wextra -Wno-unused-parameter)
+target_link_libraries(vktests PRIVATE vulkan log)
+
 # Built-in X server natives. Sources are Winlator (LGPL-2.1), see third_party/winlator/README.md.
 add_library(winlator SHARED
     winlator/drawable.c
