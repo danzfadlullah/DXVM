@@ -5,6 +5,7 @@ tar.xz or tar.zst with profile.json, system32/ and syswow64/ at the root;
 profile.json carries `type` and `versionName`; PanPlay's DXVK slot is type DXVK;
 files[] targets use ${system32}/ and ${syswow64}/.
 """
+import os
 import pathlib
 import subprocess
 import sys
@@ -64,9 +65,38 @@ def test_accepts_a_conforming_component(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
+def _real_component() -> pathlib.Path | None:
+    """The first built DXVM component visible from this checkout, or None.
+
+    A built component lives outside the repository (it is 12 MB and per-run), so it is looked
+    for in the usual places rather than at one hard-coded path: `$DXVM_WCP`, the caller's tmp
+    dir, the repo's parent, and the build script's default output. Paths that cannot even be
+    stat'd (a CI runner has no `/root`) are treated as absent, not as a failure.
+    """
+    candidates: list[pathlib.Path] = []
+    if env := os.environ.get("DXVM_WCP"):
+        candidates.append(pathlib.Path(env))
+    for base in (pathlib.Path(os.environ.get("TMPDIR", "/tmp")),
+                 pathlib.Path(os.environ.get("RUNNER_TEMP", "/tmp")),
+                 HERE.parents[2].parent,
+                 pathlib.Path.home() / "workspace"):
+        try:
+            candidates.extend(sorted(base.glob("dxvm-*.wcp")))
+        except (OSError, PermissionError):
+            continue
+    for c in candidates:
+        try:
+            if c.is_file():
+                return c
+        except (OSError, PermissionError):
+            continue
+    return None
+
+
 def test_accepts_the_real_component_if_built():
-    real = pathlib.Path("/root/workspace/dxvm-0.1.0-alpha.1-arm64ec.wcp")
-    if not real.exists():
-        pytest.skip("DXVM component not built in this environment")
+    real = _real_component()
+    if real is None:
+        pytest.skip("DXVM component not built in this environment (set DXVM_WCP to check one)")
     r = run_verify(real)
-    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.returncode == 0, f"{real}\n" + r.stdout + r.stderr
+

@@ -19,7 +19,19 @@ case "$(uname -m)" in
   aarch64|arm64) LLVM_MINGW_HOST=aarch64 ;;
   *)             LLVM_MINGW_HOST=x86_64 ;;
 esac
-LLVM_MINGW_DIR="${LLVM_MINGW_DIR:-/root/tc/llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-22.04-$LLVM_MINGW_HOST}"
+LLVM_MINGW_NAME="llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-22.04-$LLVM_MINGW_HOST"
+# An already-installed toolchain is reused wherever it is; otherwise it is fetched into a
+# writable cache. Never hard-code a developer's absolute path: on a CI runner /root is not even
+# readable.
+find_llvm_mingw() {
+  local base
+  for base in "${LLVM_MINGW_DIR:-}" "$HOME/.cache/llvm-mingw/$LLVM_MINGW_NAME" \
+              "/root/tc/$LLVM_MINGW_NAME" "${TMPDIR:-/tmp}/$LLVM_MINGW_NAME"; do
+    [[ -n "$base" && -x "$base/bin/arm64ec-w64-mingw32-clang" ]] && { printf '%s\n' "$base"; return 0; }
+  done
+  return 1
+}
+LLVM_MINGW_DIR="$(find_llvm_mingw || printf '%s\n' "$HOME/.cache/llvm-mingw/$LLVM_MINGW_NAME")"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -30,25 +42,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-OUT="${OUT:-/root/workspace/dxvm-${VERSION}.wcp}"
+OUT="${OUT:-${TMPDIR:-/tmp}/dxvm-${VERSION}.wcp}"
 DLLS=(d3d10core d3d11 d3d8 d3d9 dxgi)
 
 need() { [[ -e "$1" ]] || { echo "missing: $1" >&2; exit 1; }; }
 
 # llvm-mingw is a 100 MB+ toolchain and is not vendored: fetch the pinned host build on demand.
 if [[ ! -x "$LLVM_MINGW_DIR/bin/arm64ec-w64-mingw32-clang" ]]; then
-  name="llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-22.04-$LLVM_MINGW_HOST"
-  url="https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/$name.tar.xz"
-  cache="${LLVM_MINGW_CACHE:-${TMPDIR:-/tmp}}/$name.tar.xz"
-  echo "== fetching llvm-mingw $LLVM_MINGW_VER ($LLVM_MINGW_HOST host)"
+  url="https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/$LLVM_MINGW_NAME.tar.xz"
+  cache="${LLVM_MINGW_CACHE:-${TMPDIR:-/tmp}}"
+  cache="${cache%/}/$LLVM_MINGW_NAME.tar.xz"
+  dest="$(dirname "$LLVM_MINGW_DIR")"
+  echo "== fetching llvm-mingw $LLVM_MINGW_VER ($LLVM_MINGW_HOST host) into $dest"
   if [[ ! -f "$cache" ]]; then
     curl -fL --retry 3 -o "$cache.part" "$url"
     mv "$cache.part" "$cache"
   fi
-  mkdir -p "$(dirname "$LLVM_MINGW_DIR")"
-  tar -C "$(dirname "$LLVM_MINGW_DIR")" -xJf "$cache"
+  mkdir -p "$dest"
+  tar -C "$dest" -xJf "$cache"
   need "$LLVM_MINGW_DIR/bin/arm64ec-w64-mingw32-clang"
 fi
+echo "== llvm-mingw: $LLVM_MINGW_DIR"
 
 # --- arm64ec (system32) ---
 if [[ ! -d "$DXVM_REPO/build-arm64ec" ]]; then
