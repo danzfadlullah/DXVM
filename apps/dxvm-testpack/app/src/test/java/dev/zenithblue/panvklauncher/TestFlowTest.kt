@@ -26,7 +26,7 @@ class TestFlowTest {
         var d3dRuns = 0
         var vkRuns = 0
 
-        override suspend fun ensureDxvm(): Result<String> = dxvm
+        override suspend fun ensureDxvm(progress: (String) -> Unit): Result<String> = dxvm
         override fun driverIdentity() =
             classify(0x13b5, "", "Mali-G615 MC2, driver r44p1")
         override suspend fun runD3d(progress: (String) -> Unit): List<D3DSuite.ResultLine> {

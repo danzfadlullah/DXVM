@@ -38,6 +38,10 @@ class ComparisonModeTest {
         assertTrue(missing.any { it.contains("DXVK") })
     }
 
+    @Test fun theBaselineLabelNamesBothTheDriverAndTheComponent() {
+        assertEquals("PanVK + stock DXVK", ComparisonMode.PANVK_DXVK_LABEL)
+    }
+
     @Test fun aHalfReadyComparisonNamesOnlyTheGapThatIsLeft() {
         val prereq = ComparisonPrereq(panvkDriverId = "panvk-beta9", stockDxvkDir = null)
         assertFalse(prereq.ready)

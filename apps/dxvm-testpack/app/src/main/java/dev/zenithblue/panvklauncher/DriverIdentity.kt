@@ -28,8 +28,9 @@ const val VENDOR_MESA = 0x10005
 
 private const val MESA_PANVK_DRIVER_ID = "VK_DRIVER_ID_MESA_PANVK"
 
-/** `VK_DRIVER_ID_MESA_PANVK`'s numeric value, for a driver that only reports the enum. */
-private const val MESA_PANVK_DRIVER_ID_VALUE = 30
+/** `VK_DRIVER_ID_MESA_PANVK`'s numeric value, for a driver that only reports the enum.
+ *  Read from the NDK's vulkan_core.h (VK_DRIVER_ID_MESA_PANVK = 20), not guessed. */
+private const val MESA_PANVK_DRIVER_ID_VALUE = 20
 
 /**
  * Classifies a physical device from the values Vulkan reports for it.

@@ -54,9 +54,23 @@ arm64ec Wine; the harness this app runs is an ARM64EC image and needs no x86_64 
 future scene needs WoW64, build FEXCore with `scripts/build-fex-windows.sh` and add it to the
 list again.
 
+The pinned PanVK driver **is** still bundled (`assets/bundled-driver.json`, downloaded and
+sha256-checked by `copyPanvkSo`), because the optional comparison run needs it as the baseline
+column. It is never the default and never what the headline run measures: the container writes a
+`VK_ICD_FILENAMES` override only for a named driver, and the test pass asks for
+`ContainerManager.SYSTEM_DRIVER_ID`, which writes no override at all so the phone's own ICD is
+used. `Driver: system` in a report is therefore backed by the run's own request, not by a
+setting — and the two halves of the report each name the driver they used, because the Direct3D
+half runs inside Wine while the Vulkan half runs in this app's process.
+
 ## Deliberately not adopted from upstream
 
 - `vkd3d-proton` and the audio components: not needed by a Direct3D 8/9/10/11 test app.
-- The bundled PanVK driver remains available only as an **explicitly selected comparison**.
-  The default and headline configuration is the phone's **system** driver, because that is
-  the configuration DXVM exists to make viable.
+- PanVK is bundled but is used **only** by the explicitly pressed comparison button, as the
+  baseline column. The default and headline configuration is the phone's **system** driver —
+  the run requests it explicitly — because that is the configuration DXVM exists to make viable.
+- vortek (Winlator's Vulkan wrapper, LGPL-2.1) is deliberately **not** adopted: it is another
+  compatibility layer between DXVM and the driver (format emulation, SPIR-V rewriting), so with
+  it in front a PASS would no longer mean "the phone's own driver can do this", and its format
+  emulation overlaps the BCn remap/transcode DXVM exists to provide. It stays the documented
+  fallback if a run ever shows the container cannot reach the system loader at all.

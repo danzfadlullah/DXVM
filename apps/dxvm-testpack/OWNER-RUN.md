@@ -29,16 +29,32 @@ progress before pressing Start.
 If a component fails to install, its row says so — fix that before running. A run with a missing
 Rootfs or Wine cannot produce a report worth reading.
 
-## 3. Keep the system driver selected
+## 3. Nothing to configure — the run uses the system driver itself
 
-**Drivers**: leave the phone's own driver selected. Do **not** select PanVK for the normal run —
-the whole point is the system driver. PanVK appears only in the optional comparison.
+Press Start on the **Test** tab; there is no driver to select first. The pass asks the container
+for the **system driver** explicitly, which means it writes no `VK_ICD_FILENAMES` override at
+all, so the phone's own installed ICD is what Wine loads. A PanVK entry in **Drivers** does not
+change the run.
+
+Each report section names the driver its numbers came from, because the two halves do not run in
+the same place:
+
+```
+== Direct3D 11 suite (system driver + DXVM) ==      <- inside the Wine container
+== Vulkan capabilities (system driver, app process) ==  <- this app's own process
+```
+
+If the Direct3D section ever says something other than `system driver + DXVM`, that run did not
+measure what this project needs and the numbers describe a different driver.
 
 ## 4. Press Start
 
 The **Test** tab → **Start**. First run takes a few minutes: the Wine prefix is created once, then
 DXVM's Direct3D suite launches inside it. The progress list names every step, so a stall is
-visible rather than silent.
+visible rather than silent. On the very first run the container is created here — that is the
+longest step and it happens inside the Direct3D half, so the screen may sit on
+"launching dxvm-harness inside the container" for a while. (The built-in X server takes the
+display during that step; the report appears when it finishes.)
 
 You will see, in order:
 
@@ -72,7 +88,9 @@ component (Components screen). The button then produces:
 ```
 
 Without both parts installed, Run B's section says exactly what is missing instead of pretending
-to have run.
+to have run. Run B stages the stock DXVK next to the harness and points the container's ICD at
+PanVK, so its Direct3D section is labelled `PanVK + stock DXVK`; its Vulkan section still
+describes this app's process (PanVK is only loaded inside Wine), and the report says so.
 
 ## What the report means for the next DXVM round
 

@@ -21,6 +21,24 @@ import java.util.concurrent.TimeUnit
 
 object ContainerManager {
 
+    /**
+     * Driver id meaning "the phone's own Vulkan driver": no `VK_ICD_FILENAMES`/`VK_DRIVER_FILES`
+     * override is written, so the system loader picks the installed ICD. Pass it as
+     * `LaunchOptions.driverId` to run one session on the system driver without changing the
+     * owner's saved selection.
+     */
+    const val SYSTEM_DRIVER_ID = "system"
+
+    /**
+     * Whether a run must write a Vulkan ICD override into the container.
+     *
+     * True for every real driver id (the container synthesises `panvk_icd.json` and points
+     * `VK_ICD_FILENAMES`/`VK_DRIVER_FILES` at it) and **false** for [SYSTEM_DRIVER_ID], which is
+     * how a run reaches the phone's own driver: with no override, Wine's Vulkan loader uses the
+     * installed system ICD. Pure so the rule is testable without a device.
+     */
+    fun icdOverrideNeeded(requestedDriverId: String?): Boolean = requestedDriverId != SYSTEM_DRIVER_ID
+
     private const val PREFS_NAME = "launcher"
     private const val KEY_RECENTS = "recent_exes"
 
@@ -347,19 +365,30 @@ object ContainerManager {
         }
 
         val drivers = DriverManager.getDrivers(ctx)
-        val selectedDriver = launchOpts.get()?.driverId?.let { id -> DriverManager.find(ctx, drivers, id) }
-            ?: DriverManager.getSelectedDriver(ctx, drivers)
-        val icdJson = JSONObject().apply {
-            put("file_format_version", "1.0.0")
-            put("ICD", JSONObject().apply {
-                put("library_path", selectedDriver.libPath)
-                put("api_version", "1.4.0")
-            })
+        val requestedDriverId = launchOpts.get()?.driverId
+        // SYSTEM_DRIVER_ID is not a driver list entry: it means "override nothing".
+        val selectedDriver = if (!icdOverrideNeeded(requestedDriverId)) {
+            null
+        } else {
+            requestedDriverId?.let { id -> DriverManager.find(ctx, drivers, id) }
+                ?: DriverManager.getSelectedDriver(ctx, drivers)
         }
         val icdFile = File(containerDir, "panvk_icd.json")
-        try {
-            icdFile.writeText(icdJson.toString(2))
-        } catch (_: Exception) {}
+        if (selectedDriver != null) {
+            val icdJson = JSONObject().apply {
+                put("file_format_version", "1.0.0")
+                put("ICD", JSONObject().apply {
+                    put("library_path", selectedDriver.libPath)
+                    put("api_version", "1.4.0")
+                })
+            }
+            try {
+                icdFile.writeText(icdJson.toString(2))
+            } catch (_: Exception) {}
+        } else {
+            // Remove a stale override file so nothing in the container can still point at it.
+            try { icdFile.delete() } catch (_: Exception) {}
+        }
 
         val vklayersDir = File(containerDir, "vklayers")
         vklayersDir.mkdirs()
@@ -404,8 +433,12 @@ object ContainerManager {
             "USER" to "xuser",
             // libandroid-sysvshm sysvshm_connect crashes on NULL getenv; /dev/null forces clean non-SHM fallback.
             "ANDROID_SYSVSHM_SERVER" to "/dev/null",
-            "VK_ICD_FILENAMES" to icdFile.absolutePath,
-            "VK_DRIVER_FILES" to icdFile.absolutePath
+            // No override at all for the system driver: Wine's Vulkan loader then uses the
+            // phone's installed ICD, which is the configuration this app exists to measure.
+            *(if (selectedDriver != null) arrayOf(
+                "VK_ICD_FILENAMES" to icdFile.absolutePath,
+                "VK_DRIVER_FILES" to icdFile.absolutePath
+            ) else emptyArray())
         )
 
         // DXVK/vkd3d logs go to one dir (Z: = /); SessionLogs.collect moves them into the session folder.

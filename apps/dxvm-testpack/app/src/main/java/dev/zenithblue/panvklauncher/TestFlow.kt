@@ -19,10 +19,19 @@ interface TestFlowHost {
      * it is not installed yet. Returns the component version, or a failure whose message is
      * shown in the report.
      */
-    suspend fun ensureDxvm(): Result<String>
+    suspend fun ensureDxvm(progress: (String) -> Unit): Result<String>
 
     /** Identity of the driver that will actually answer — read from the driver, not a setting. */
     fun driverIdentity(): DriverIdentity
+
+    /**
+     * Which ICD the Direct3D half asks the container to use. [ContainerManager.SYSTEM_DRIVER_ID]
+     * (the default) means the phone's own driver, i.e. no `VK_ICD_FILENAMES` override at all.
+     */
+    val d3dDriverId: String get() = ContainerManager.SYSTEM_DRIVER_ID
+
+    /** Human label for the D3D half's driver, used in the report's section header. */
+    val d3dDriverLabel: String get() = "system driver + DXVM"
 
     /** Runs the Direct3D half. Must never throw: a dead container is a CRASH line, not an exception. */
     suspend fun runD3d(progress: (String) -> Unit): List<D3DSuite.ResultLine>
@@ -43,9 +52,31 @@ interface TestFlowHost {
  * is this app's headline anti-goal, so the pass stops and says why instead of producing numbers
  * about the wrong implementation.
  */
+/**
+ * Whether the installed DXVM component must be replaced by the one bundled in this APK.
+ *
+ * The component's `versionName` is fixed per release and PanPlay's installer refuses an existing
+ * one, so a rebuilt APK would otherwise find "already installed" and keep testing the previous
+ * DLLs while printing the same version — the owner would conclude a DXVM fix did nothing. The
+ * bundled archive's digest is therefore the identity that decides.
+ *
+ * Pure so the rule is testable without a device.
+ */
+fun needsDxvmReinstall(
+    bundledDigest: String?,
+    installedDigest: String?,
+    installed: Boolean
+): Boolean {
+    if (!installed) return true
+    // No bundled archive (a sideloaded .wcp) or no recorded digest: nothing to compare against,
+    // so take what is installed at face value rather than reinstalling on every pass.
+    if (bundledDigest.isNullOrEmpty()) return false
+    return bundledDigest != installedDigest
+}
+
 suspend fun runFullPass(host: TestFlowHost, progress: (String) -> Unit): String {
     progress("DXVM component: checking")
-    val dxvm = host.ensureDxvm().getOrElse { err ->
+    val dxvm = host.ensureDxvm(progress).getOrElse { err ->
         val why = err.message ?: "DXVM component is not available"
         progress("DXVM component: $why")
         return shortCircuit(host, "dxvm.component", why)
@@ -70,7 +101,25 @@ suspend fun runFullPass(host: TestFlowHost, progress: (String) -> Unit): String 
     val lines = d3d + vk
     progress("Report: ${lines.count { it.kind == "PASS" }} passed, " +
         "${lines.count { it.kind == "FAIL" || it.kind == "CRASH" }} failed or crashed")
-    return TestReport.build(host.header(dxvm), d3d, vk)
+    val header = host.header(dxvm).copy(
+        d3dSectionLabel = host.d3dDriverLabel,
+        vkSectionLabel = vkSectionLabel(host)
+    )
+    return TestReport.build(header, d3d, vk)
+}
+
+/** The Vulkan half always runs in this app's process, on whatever ICD the system loader picks. */
+private fun vkSectionLabel(host: TestFlowHost): String {
+    val identity = try {
+        host.driverIdentity()
+    } catch (_: Throwable) {
+        return "driver not identified (app process)"
+    }
+    return when (identity.kind) {
+        DriverIdentity.Kind.System -> "system driver, app process"
+        DriverIdentity.Kind.PanVk -> "PanVK, app process"
+        DriverIdentity.Kind.Unknown -> "driver not identified, app process"
+    }
 }
 
 /** The pass over a real device. */
@@ -95,12 +144,45 @@ private fun shortCircuit(host: TestFlowHost, name: String, why: String): String 
 /** The real environment: the phone's own driver, the app's bundled DXVM, the Wine container. */
 class AndroidTestFlowHost(private val ctx: Context) : TestFlowHost {
 
-    override suspend fun ensureDxvm(): Result<String> = withContext(Dispatchers.IO) {
-        DxvmComponent.installedVersion(ctx)?.let { return@withContext Result.success(it) }
+    private companion object {
+        /** Digest of the bundled component the last install came from. */
+        const val KEY_DXVM_DIGEST = "bundled_dxvm_digest"
+    }
+
+    override suspend fun ensureDxvm(progress: (String) -> Unit): Result<String> = withContext(Dispatchers.IO) {
         val asset = bundledDxvmAsset()
-            ?: return@withContext Result.failure(IllegalStateException(
-                "no dxvm-*.wcp is bundled in this APK and none is installed"))
-        val installed = DxvmComponent.installBundled(ctx, asset).getOrElse { return@withContext Result.failure(it) }
+        val bundledDigest = asset?.let { digestOfAsset(it) }
+        val installed = DxvmComponent.installed(ctx)
+        val prefs = ctx.getSharedPreferences("dxvm-testpack", Context.MODE_PRIVATE)
+        val installedDigest = prefs.getString(KEY_DXVM_DIGEST, null)
+
+        // The component's versionName is fixed per release, so an APK rebuilt with a newer DXVM
+        // would otherwise find "already installed" and keep testing the previous DLLs — the
+        // report would print the same version and the owner would conclude a fix did nothing.
+        // The bundled archive's digest is what decides; an install without a bundled archive
+        // (a sideloaded .wcp) is taken at face value.
+        if (!needsDxvmReinstall(bundledDigest, installedDigest, installed != null)) {
+            return@withContext Result.success(installed?.second ?: "unknown")
+        }
+
+        if (asset == null) {
+            return@withContext if (installed != null) {
+                Result.success(installed.second)
+            } else {
+                Result.failure(IllegalStateException(
+                    "no dxvm-*.wcp is bundled in this APK and none is installed"))
+            }
+        }
+
+        if (installed != null) {
+            progress("DXVM component: bundled archive differs from the installed one; reinstalling")
+            if (!ContentManager.delete(ctx, installed.first)) {
+                return@withContext Result.failure(IllegalStateException(
+                    "could not replace the installed DXVM component ${installed.second}"))
+            }
+        }
+        val version = DxvmComponent.installBundled(ctx, asset).getOrElse { return@withContext Result.failure(it) }
+        prefs.edit().putString(KEY_DXVM_DIGEST, bundledDigest).apply()
         // The container may already exist from an earlier run: put DXVM's DLLs in it now.
         if (ContainerManager.isSetup(ctx)) {
             DxvmComponent.installed(ctx)?.let { (content, _) ->
@@ -110,24 +192,56 @@ class AndroidTestFlowHost(private val ctx: Context) : TestFlowHost {
                 return@withContext Result.failure(IllegalStateException("could not enable DXVK: $it"))
             }
         }
-        Result.success(installed)
+        Result.success(version)
+    }
+
+    /** SHA-256 of the APK-bundled component archive, the identity that survives a version bump miss. */
+    private fun digestOfAsset(asset: String): String = try {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        ctx.assets.open(asset).use { ins ->
+            val buf = ByteArray(1 shl 16)
+            while (true) {
+                val n = ins.read(buf)
+                if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        md.digest().joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) {
+        ""
     }
 
     override fun driverIdentity(): DriverIdentity = VkTests.identity()
 
-    override suspend fun runD3d(progress: (String) -> Unit): List<D3DSuite.ResultLine> {
+    override suspend fun runD3d(progress: (String) -> Unit): List<D3DSuite.ResultLine> =
+        runD3d(progress, driverId = d3dDriverId, stageFrom = null)
+
+    suspend fun runD3d(
+        progress: (String) -> Unit,
+        driverId: String,
+        stageFrom: File?
+    ): List<D3DSuite.ResultLine> {
         val api = "d3d11,d3d10,d3d9"
-        progress("Direct3D suite: launching dxvm-harness inside the container")
-        val report = D3DSuite.run(ctx, api).getOrElse { err ->
+        progress("Direct3D suite: launching dxvm-harness inside the container" +
+            if (driverId == ContainerManager.SYSTEM_DRIVER_ID) " on the system driver"
+            else " on driver '$driverId'")
+        val report = D3DSuite.run(ctx, api, driverId = driverId, stageFrom = stageFrom).getOrElse { err ->
             return listOf(D3DSuite.ResultLine("CRASH", "harness", err.message ?: "launch failed"))
         }
         val lines = D3DSuite.parse(report).toMutableList()
-        // The proof the report is about DXVM and not upstream DXVK, read from the prefix itself.
-        val version = DxvmComponent.prefixVersion(ctx)
-        lines.add(0, if (version != null) {
-            D3DSuite.ResultLine("PASS", "dxvm.prefix", "DXVM $version in drive_c/windows/system32")
-        } else {
-            D3DSuite.ResultLine("FAIL", "dxvm.prefix", "no DXVM marker in the Wine prefix")
+        // The proof of which D3D implementation ran, read from the staged files next to the
+        // harness — the directory Windows actually searches first. Run B stages a stock DXVK, so
+        // there the absence of DXVM's marker is the expected, correct answer.
+        val staged = DxvmComponent.prefixMarkerVersion(D3DSuite.stageDir(ctx))
+        val useDxvm = stageFrom == null
+        lines.add(0, when {
+            useDxvm && staged != null ->
+                D3DSuite.ResultLine("PASS", "dxvm.staged", "DXVM $staged staged beside the harness")
+            useDxvm ->
+                D3DSuite.ResultLine("FAIL", "dxvm.staged", "no DXVM marker beside the harness")
+            else ->
+                D3DSuite.ResultLine("SKIP", "dxvm.staged",
+                    "comparison run: stock DXVK staged, not DXVM")
         })
         return lines
     }
@@ -146,7 +260,9 @@ class AndroidTestFlowHost(private val ctx: Context) : TestFlowHost {
             code = appVersionCode(),
             driver = driver,
             dxvm = dxvm,
-            device = deviceBlock(identity.name)
+            device = deviceBlock(identity.name),
+            d3dSectionLabel = d3dDriverLabel,
+            vkSectionLabel = vkSectionLabel(this)
         )
     }
 

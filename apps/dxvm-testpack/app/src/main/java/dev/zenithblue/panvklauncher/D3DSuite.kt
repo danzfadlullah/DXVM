@@ -126,16 +126,24 @@ object D3DSuite {
     suspend fun run(
         ctx: Context,
         api: String = "d3d11,d3d10,d3d9",
-        timeoutMs: Long = 20L * 60_000L
+        timeoutMs: Long = 30L * 60_000L,
+        /** Driver id for this run; [ContainerManager.SYSTEM_DRIVER_ID] for the phone's own driver. */
+        driverId: String = ContainerManager.SYSTEM_DRIVER_ID,
+        /**
+         * Component whose `system32/` is staged next to the harness — DXVM on the default path,
+         * a stock DXVK only in the explicit comparison run. Null stages DXVM.
+         */
+        stageFrom: File? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         val section = "== Direct3D 11 suite ($api) =="
-        if (!ContainerManager.isSetup(ctx)) {
-            return@withContext Result.success(crashReport(section, api,
-                "Wine container is not set up; nothing ran"))
-        }
+        // No "container is not set up" guard: ContainerManager.runExe sets the container up on the
+        // way in, and refusing here pre-empted the app's own recovery on a fresh install.
         val dxvm = DxvmComponent.installed(ctx)
-            ?: return@withContext Result.success(crashReport(section, api,
+        val useDxvm = stageFrom == null
+        if (useDxvm && dxvm == null) {
+            return@withContext Result.success(crashReport(section, api,
                 "DXVM component is not installed; refusing to test a different D3D implementation"))
+        }
 
         val stage = stageDir(ctx).apply { mkdirs() }
         val exe = File(stage, EXE_NAME)
@@ -145,10 +153,17 @@ object D3DSuite {
             ctx.assets.open(HARNESS_ASSET).use { ins ->
                 exe.outputStream().use { outs -> ins.copyTo(outs) }
             }
-            // Next to the exe so the application-directory search finds DXVM, not system32 leftovers.
+            // Next to the exe so the application-directory search finds this component, not
+            // system32 leftovers.
+            val sourceDir = File(stageFrom?.let { File(it, "system32") } ?: File(dxvm!!.first.dir, "system32"), "")
             for (dll in DxvmComponent.DLLS) {
-                val src = File(File(dxvm.first.dir, "system32"), dll)
+                val src = File(sourceDir, dll)
                 if (src.isFile) src.copyTo(File(stage, dll), overwrite = true)
+            }
+            // A marker left by a previous DXVM run would make the app's own proof line claim DXVM
+            // for a run that staged something else.
+            if (!useDxvm) {
+                try { File(stage, DxvmComponent.MARKER_NAME).delete() } catch (_: Exception) {}
             }
         } catch (t: Throwable) {
             return@withContext Result.success(crashReport(section, api,
@@ -162,7 +177,7 @@ object D3DSuite {
         val worker = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val job = worker.async {
             ContainerManager.runExe(ctx, exe.absolutePath, { line -> captured.add(line) },
-                LaunchOptions(args = commandLine(api)))
+                LaunchOptions(args = commandLine(api), driverId = driverId))
         }
         val exit = withTimeoutOrNull(timeoutMs) { job.await() }
         if (exit == null) {

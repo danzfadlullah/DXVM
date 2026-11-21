@@ -43,9 +43,32 @@ while [[ $# -gt 0 ]]; do
 done
 
 OUT="${OUT:-${TMPDIR:-/tmp}/dxvm-${VERSION}.wcp}"
+need DXVM_REPO_PLACEHOLDER 2>/dev/null || true
 DLLS=(d3d10core d3d11 d3d8 d3d9 dxgi)
 
 need() { [[ -e "$1" ]] || { echo "missing: $1" >&2; exit 1; }; }
+need_submodules() {
+  [[ -f "$DXVM_REPO/.gitmodules" ]] || return 0
+  local missing
+  missing="$(cd "$DXVM_REPO" && git submodule status 2>/dev/null | awk '$1 ~ /^-/ {print $2}')"
+  [[ -z "$missing" ]] && return 0
+  echo "== initialising submodules: $(echo "$missing" | tr '\n' ' ')"
+  (cd "$DXVM_REPO" && git submodule update --init --recursive --depth 1) || {
+    echo "submodule init failed; DXVM needs include/{vulkan,spirv,native/directx} and subprojects/{dxbc-spirv,libdisplay-info}" >&2
+    exit 1
+  }
+}
+
+# Meson's configure output is the only place a cross-build failure explains itself, and the
+# compile output is ~300 lines: keep one quiet, but never hide a failure.
+run_quiet() {
+  local log; log="$(mktemp)"
+  if "$@" >"$log" 2>&1; then rm -f "$log"; return 0; fi
+  echo "-- command failed: $*" >&2
+  tail -60 "$log" >&2
+  rm -f "$log"
+  return 1
+}
 
 # llvm-mingw is a 100 MB+ toolchain and is not vendored: fetch the pinned host build on demand.
 if [[ ! -x "$LLVM_MINGW_DIR/bin/arm64ec-w64-mingw32-clang" ]]; then
@@ -67,20 +90,21 @@ echo "== llvm-mingw: $LLVM_MINGW_DIR"
 # --- arm64ec (system32) ---
 if [[ ! -d "$DXVM_REPO/build-arm64ec" ]]; then
   echo "== configuring arm64ec (this is the slow step)"
-  PATH="$LLVM_MINGW_DIR/bin:$PATH" meson setup \
+  export PATH="$LLVM_MINGW_DIR/bin:$PATH"
+  run_quiet meson setup \
     --cross-file "$DXVM_REPO/build-win-arm64ec.txt" --buildtype release \
-    "$DXVM_REPO/build-arm64ec" >/dev/null
+    "$DXVM_REPO/build-arm64ec"
 fi
 echo "== building arm64ec"
-PATH="$LLVM_MINGW_DIR/bin:$PATH" meson compile -C "$DXVM_REPO/build-arm64ec" >/dev/null
+run_quiet meson compile -C "$DXVM_REPO/build-arm64ec"
 
 # --- i686 (syswow64) ---
 if [[ ! -d "$DXVM_REPO/build-win32" ]]; then
-  meson setup --cross-file "$DXVM_REPO/build-win32.txt" --buildtype release \
-    "$DXVM_REPO/build-win32" >/dev/null
+  run_quiet meson setup --cross-file "$DXVM_REPO/build-win32.txt" --buildtype release \
+    "$DXVM_REPO/build-win32"
 fi
 echo "== building i686"
-meson compile -C "$DXVM_REPO/build-win32" >/dev/null
+run_quiet meson compile -C "$DXVM_REPO/build-win32"
 
 # --- stage ---
 STAGE="$(mktemp -d)"

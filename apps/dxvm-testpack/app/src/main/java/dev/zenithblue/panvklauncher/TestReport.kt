@@ -31,7 +31,16 @@ object TestReport {
         val dxvm: String,
         val timestamp: String = formatNow(),
         /** Device block lines, printed as `label value` in order. */
-        val device: List<Pair<String, String>> = emptyList()
+        val device: List<Pair<String, String>> = emptyList(),
+        /**
+         * What drove the Direct3D half. Defaults to a phrase derived from [driver], but the two
+         * halves can run on different drivers (the D3D half runs inside Wine, the Vulkan half in
+         * this process), so each section states its own.
+         */
+        val d3dSectionLabel: String? = null,
+        val vkSectionLabel: String? = null,
+        /** Extra lines under the header, e.g. why a comparison half is absent. */
+        val notes: List<String> = emptyList()
     )
 
     private fun formatNow(): String =
@@ -65,10 +74,14 @@ object TestReport {
                 for ((label, value) in header.device) appendLine("$label $value")
                 appendLine()
             }
+            if (header.notes.isNotEmpty()) {
+                for (note in header.notes) appendLine(note)
+                appendLine()
+            }
             // The spec's report sample names the driver in every section header, not only in the
             // header block: a section pasted on its own must still be interpretable.
-            section(this, "== Direct3D 11 suite (${driverKind(header.driver)}) ==", d3d)
-            section(this, "== Vulkan capabilities (${driverKind(header.driver)}) ==", vk)
+            section(this, "== Direct3D 11 suite (${header.d3dSectionLabel ?: driverKind(header.driver)}) ==", d3d)
+            section(this, "== Vulkan capabilities (${header.vkSectionLabel ?: driverKind(header.driver)}) ==", vk)
             if (passed == 0 && failed == 0) {
                 appendLine("NOTE: nothing ran")
                 appendLine()
