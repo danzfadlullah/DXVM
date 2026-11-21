@@ -1,20 +1,50 @@
 name: testpack
 
-# Builds the DXVM TestPack APK. Android SDK/NDK are not available in the agent
-# environment, so this workflow is where the app's Kotlin/C++ tests and the APK
-# assembly actually run. A local pass only proves the source compiles logically;
-# this file is the evidence gate.
+# Builds the DXVM TestPack APK. Android SDK/NDK are absent from the agent environment, so this
+# workflow is where the APK and the DXVM component it bundles are actually produced. Everything
+# that can run on a plain Linux host runs first and is a hard gate: a red step here means the
+# report the app would produce cannot be trusted.
 on:
   push:
     paths:
       - 'apps/dxvm-testpack/**'
+      - 'build-win-arm64ec.txt'
+      - '.github/workflows/testpack.yml'
+  pull_request:
+    paths:
+      - 'apps/dxvm-testpack/**'
+      - 'build-win-arm64ec.txt'
       - '.github/workflows/testpack.yml'
   workflow_dispatch:
 
 jobs:
+  host:
+    # Fast, device-free gates. Runs without the SDK so a red test is readable.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python test deps
+        run: python3 -m pip install --user --quiet pytest
+
+      # lavapipe is the ICD the Vulkan suite runs against here. Without it the suite would
+      # report SKIP for every entry, and a run of skips must not look like a pass.
+      - name: Host Vulkan ICD (lavapipe)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libvulkan1 mesa-vulkan-drivers vulkan-tools
+          vulkaninfo --summary || true
+
+      - name: Component + report tests
+        run: python3 -m pytest apps/dxvm-testpack/tests/component -q
+
+      - name: Vulkan suite (host ICD — NOT Mali evidence)
+        run: bash apps/dxvm-testpack/tests/vktests/run-host.sh
+
   apk:
     runs-on: ubuntu-22.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -35,25 +65,87 @@ jobs:
           mv cmdline-tools latest
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
           "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" "platforms;android-36" \
+            "platform-tools" "platforms;android-36" "build-tools;36.0.0" \
             "ndk;29.0.14206865" "cmake;3.22.1" >/dev/null
-
-      - name: Host-side component tests
-        run: python3 -m pytest apps/dxvm-testpack/tests/component -q
-
-      - name: Vulkan suite ports (lavapipe)
-        run: bash apps/dxvm-testpack/tests/vktests/run-host.sh || true
 
       - name: Unit tests
         working-directory: apps/dxvm-testpack
-        run: ./gradlew --no-daemon :app:testDebugUnitTest
+        run: ./gradlew --no-daemon -PbundleComponents=false :app:testDebugUnitTest
 
-      - name: Assemble
+      # --- DXVM component ---------------------------------------------------
+      # Built from this repository's DXVM source, not downloaded. Both architectures, because
+      # the component contract is system32 = arm64ec and syswow64 = i686.
+      - name: DXVM build deps
+        run: |
+          sudo apt-get update -qq
+          # glslangValidator is found at configure time by DXVM's meson.build; zstd packs the
+          # component; the i686 mingw toolchain builds syswow64.
+          sudo apt-get install -y -qq zstd glslang-tools \
+            gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686
+          # meson from pip, as the repository's Windows workflow does, so the cross build is not
+          # limited by the distro's meson.
+          python3 -m pip install --user --quiet --upgrade meson ninja
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          meson --version
+
+      - name: Build DXVM component
         working-directory: apps/dxvm-testpack
-        run: ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx3g :app:assembleDebug
+        env:
+          DXVM_REPO: ${{ github.workspace }}
+        run: |
+          bash tools/build-dxvm-component.sh \
+            --out "$RUNNER_TEMP/dxvm-0.1.0-alpha.1-arm64ec.wcp"
+
+      # The catalog entry hard-codes the asset name, so a version bump that forgets one of the
+      # two places would ship an APK whose component the app never installs. Fail here instead.
+      - name: Component name matches the catalog entry
+        working-directory: apps/dxvm-testpack
+        run: |
+          asset=$(python3 - <<'PY'
+          import re, pathlib
+          src = pathlib.Path("app/src/main/java/dev/zenithblue/panvklauncher/Contents.kt").read_text()
+          m = re.search(r'type = "DXVK".*?asset = "components/([^"]+)"', src, re.S)
+          print(m.group(1))
+          PY
+          )
+          built="dxvm-0.1.0-alpha.1-arm64ec.wcp"
+          echo "catalog=$asset built=$built"
+          test "$asset" = "$built"
+
+      # --- components to pack ----------------------------------------------
+      - name: Fetch downloadable components (rootfs, Proton)
+        working-directory: apps/dxvm-testpack
+        run: |
+          OUT="$RUNNER_TEMP/components" bash scripts/fetch-launcher-components.sh
+
+      - name: Assemble APK
+        working-directory: apps/dxvm-testpack
+        run: |
+          ./gradlew --no-daemon -Dorg.gradle.jvmargs=-Xmx3g \
+            -PcomponentsDir="$RUNNER_TEMP/components" \
+            -PdxvmWcp="$RUNNER_TEMP/dxvm-0.1.0-alpha.1-arm64ec.wcp" \
+            :app:assembleDebug
+
+      - name: APK carries DXVM and the harness
+        working-directory: apps/dxvm-testpack
+        run: |
+          apk=$(ls app/build/outputs/apk/debug/*.apk | head -1)
+          echo "apk=$apk"
+          unzip -l "$apk" | tee /tmp/apk.txt
+          grep -q 'assets/components/dxvm-0.1.0-alpha.1-arm64ec.wcp' /tmp/apk.txt
+          grep -q 'assets/harness/dxvm-harness.exe' /tmp/apk.txt
+          # The Vulkan suite is native code; without it every vk.* line would be a SKIP.
+          grep -q 'lib/arm64-v8a/libvktests.so' /tmp/apk.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: dxvm-testpack-debug
           path: apps/dxvm-testpack/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Keep the component for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: dxvm-component
+          path: ${{ runner.temp }}/dxvm-0.1.0-alpha.1-arm64ec.wcp
           if-no-files-found: error

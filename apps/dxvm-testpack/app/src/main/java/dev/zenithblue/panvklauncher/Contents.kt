@@ -86,15 +86,18 @@ object ContentManager {
             note = "x86/x86_64 emulation",
             asset = "components/fexcore-2609.1.wcp"
         ),
+        // DXVM takes PanPlay's DXVK slot: same component type, same archive contract, same
+        // install path (contents/DXVK/<versionName>), different implementation. This fork ships
+        // no upstream DXVK build, and the app refuses to test anything without DXVM's marker.
         CatalogEntry(
             type = "DXVK",
-            name = "DXVK v3.1.1 + clear fix, ARM64EC + i686 (built from doitsujin/dxvk source)",
+            name = "DXVM (this repo's DXVK fork, ARM64EC + i686, built by tools/build-dxvm-component.sh)",
             url = "",
             sha256 = null,
-            title = "DXVK",
-            versionName = "3.1.1-4-arm64ec",
-            note = "Direct3D 8/9/10/11 to Vulkan",
-            asset = "components/dxvk-3.1.1-4-arm64ec.wcp"
+            title = "DXVM",
+            versionName = "0.1.0-alpha.1-arm64ec",
+            note = "Direct3D 8/9/10/11 to Vulkan — DXVM, the thing this app tests",
+            asset = "components/dxvm-0.1.0-alpha.1-arm64ec.wcp"
         ),
         CatalogEntry(
             type = "VKD3D",

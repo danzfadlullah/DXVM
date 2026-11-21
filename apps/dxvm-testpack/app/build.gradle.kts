@@ -175,6 +175,19 @@ val copyComponents = tasks.register<Sync>("copyComponents") {
             }
         }
     }
+    // DXVM is built in the same CI run, so it cannot carry a committed sha256 pin; it is
+    // verified by tools/verify-component.py first and passed explicitly with -PdxvmWcp.
+    // Nothing on the default path needs it, but a caller that asks for it must get it: a typo
+    // must not silently produce an APK without the component the app tests.
+    val dxvmWcp = providers.gradleProperty("dxvmWcp").orNull
+    if (dxvmWcp != null) {
+        val f = file(dxvmWcp)
+        from(f)
+        doFirst {
+            if (!f.isFile) throw GradleException(
+                "-PdxvmWcp was given but $f does not exist (build it with tools/build-dxvm-component.sh)")
+        }
+    }
 }
 
 tasks.named("preBuild") {

@@ -41,6 +41,19 @@ reduced to a test shell and re-pointed at DXVM.
 `tests/component/test_licences.py` asserts the LGPL and notice files are still present, so a
 future stripping pass cannot quietly remove them.
 
+## Bundling after this fork's changes
+
+`app/bundled-components.json` now lists only what a Direct3D 8/9/10/11 test run needs and what
+can be obtained reproducibly in CI: the rootfs and Proton (pinned URLs, sha256-checked) plus
+DXVM, which CI builds from this repository's source and passes with `-PdxvmWcp`. PanPlay's own
+`dxvk-3.1.1-4-arm64ec.wcp`, `vkd3d`, Box64 and the audio components are gone; PanVK is no longer
+bundled, because the default configuration is the phone's own driver.
+
+FEXCore is also not bundled. It is only needed to run 32-bit (x86) Windows programs under the
+arm64ec Wine; the harness this app runs is an ARM64EC image and needs no x86_64 emulation. If a
+future scene needs WoW64, build FEXCore with `scripts/build-fex-windows.sh` and add it to the
+list again.
+
 ## Deliberately not adopted from upstream
 
 - `vkd3d-proton` and the audio components: not needed by a Direct3D 8/9/10/11 test app.

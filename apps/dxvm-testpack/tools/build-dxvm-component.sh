@@ -12,7 +12,14 @@ VERSION="0.1.0-alpha.1-arm64ec"
 OUT=""
 DXVM_REPO="${DXVM_REPO:-/root/workspace/DXVM/.worktrees/dxvm-clean-arch}"
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LLVM_MINGW_DIR="${LLVM_MINGW_DIR:-/root/tc/llvm-mingw-20260922-ucrt-ubuntu-22.04-aarch64}"
+LLVM_MINGW_VER=20260922
+# llvm-mingw ships a host build per CPU; pick the one this host can actually run so the same
+# script works on an aarch64 dev box and on x86-64 CI.
+case "$(uname -m)" in
+  aarch64|arm64) LLVM_MINGW_HOST=aarch64 ;;
+  *)             LLVM_MINGW_HOST=x86_64 ;;
+esac
+LLVM_MINGW_DIR="${LLVM_MINGW_DIR:-/root/tc/llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-22.04-$LLVM_MINGW_HOST}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -27,6 +34,21 @@ OUT="${OUT:-/root/workspace/dxvm-${VERSION}.wcp}"
 DLLS=(d3d10core d3d11 d3d8 d3d9 dxgi)
 
 need() { [[ -e "$1" ]] || { echo "missing: $1" >&2; exit 1; }; }
+
+# llvm-mingw is a 100 MB+ toolchain and is not vendored: fetch the pinned host build on demand.
+if [[ ! -x "$LLVM_MINGW_DIR/bin/arm64ec-w64-mingw32-clang" ]]; then
+  name="llvm-mingw-$LLVM_MINGW_VER-ucrt-ubuntu-22.04-$LLVM_MINGW_HOST"
+  url="https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/$name.tar.xz"
+  cache="${LLVM_MINGW_CACHE:-${TMPDIR:-/tmp}}/$name.tar.xz"
+  echo "== fetching llvm-mingw $LLVM_MINGW_VER ($LLVM_MINGW_HOST host)"
+  if [[ ! -f "$cache" ]]; then
+    curl -fL --retry 3 -o "$cache.part" "$url"
+    mv "$cache.part" "$cache"
+  fi
+  mkdir -p "$(dirname "$LLVM_MINGW_DIR")"
+  tar -C "$(dirname "$LLVM_MINGW_DIR")" -xJf "$cache"
+  need "$LLVM_MINGW_DIR/bin/arm64ec-w64-mingw32-clang"
+fi
 
 # --- arm64ec (system32) ---
 if [[ ! -d "$DXVM_REPO/build-arm64ec" ]]; then
