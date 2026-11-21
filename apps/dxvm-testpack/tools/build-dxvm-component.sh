@@ -94,3 +94,18 @@ tar -cf - -C "$STAGE" profile.json system32 syswow64 | zstd -q -19 -o "$OUT"
 echo "== wrote $OUT ($(du -h "$OUT" | cut -f1))"
 
 python3 "$TOOLS/verify-component.py" "$OUT"
+
+# --- stage the harness the app runs -----------------------------------------
+# The arm64ec build produces dxvm-harness.exe alongside the DLLs. It runs natively on
+# arm64ec Wine (no x86_64 emulation), which is why the app's D3D half uses this copy and
+# not the i686/x86_64 one. Copying it here keeps the APK asset in step with the DLLs it
+# is meant to exercise.
+HARNESS_SRC="$DXVM_REPO/build-arm64ec/tests/dxvm-harness/dxvm-harness.exe"
+HARNESS_OUT="${HARNESS_OUT:-$TOOLS/../app/src/main/assets/harness/dxvm-harness.exe}"
+if [[ -f "$HARNESS_SRC" ]]; then
+  mkdir -p "$(dirname "$HARNESS_OUT")"
+  cp "$HARNESS_SRC" "$HARNESS_OUT"
+  echo "== staged harness $HARNESS_OUT ($(du -h "$HARNESS_OUT" | cut -f1))"
+else
+  echo "warning: $HARNESS_SRC not found; the app's bundled harness asset is unchanged" >&2
+fi
