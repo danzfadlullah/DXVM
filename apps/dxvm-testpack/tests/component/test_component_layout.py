@@ -65,29 +65,39 @@ def test_accepts_a_conforming_component(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
 
 
-def _real_component() -> pathlib.Path | None:
-    """The first built DXVM component visible from this checkout, or None.
+# The component this pipeline builds, by the exact version its packager stamps. A looser glob
+# (any dxvm-*.wcp) picks up unrelated sibling builds — an x86_64 or Mali-arch DXVM archive in a
+# shared tmp directory is not an arm64ec+i686 component and must not be verified as one.
+BUILT_COMPONENT_NAME = "dxvm-0.1.0-alpha.1-arm64ec.wcp"
 
-    A built component lives outside the repository (it is 12 MB and per-run), so it is looked
-    for in the usual places rather than at one hard-coded path: `$DXVM_WCP`, the caller's tmp
-    dir, the repo's parent, and the build script's default output. Paths that cannot even be
-    stat'd (a CI runner has no `/root`) are treated as absent, not as a failure.
+
+def _real_component() -> pathlib.Path | None:
+    """The built DXVM component if this checkout can see one, else None.
+
+    `$DXVM_WCP` names one explicitly (and wins even if the name differs, e.g. a `--version`
+    build). Otherwise the exact `BUILT_COMPONENT_NAME` is looked for where the build script and
+    CI leave it. Paths that cannot even be stat'd (a CI runner may have no `/root`) count as
+    absent rather than as a failure.
     """
-    candidates: list[pathlib.Path] = []
     if env := os.environ.get("DXVM_WCP"):
-        candidates.append(pathlib.Path(env))
-    for base in (pathlib.Path(os.environ.get("TMPDIR", "/tmp")),
-                 pathlib.Path(os.environ.get("RUNNER_TEMP", "/tmp")),
-                 HERE.parents[2].parent,
-                 pathlib.Path.home() / "workspace"):
+        candidate = pathlib.Path(env)
         try:
-            candidates.extend(sorted(base.glob("dxvm-*.wcp")))
+            if candidate.is_file():
+                return candidate
         except (OSError, PermissionError):
-            continue
-    for c in candidates:
+            pass
+    bases = [
+        pathlib.Path(os.environ.get("RUNNER_TEMP", "/tmp")),
+        pathlib.Path(os.environ.get("TMPDIR", "/tmp")),
+        HERE.parents[2].parent,               # the DXVM repo root
+        HERE.parents[2].parent.parent,        # ... or its parent, beside a sibling worktree
+        pathlib.Path.home() / "workspace",
+    ]
+    for base in bases:
+        candidate = base / BUILT_COMPONENT_NAME
         try:
-            if c.is_file():
-                return c
+            if candidate.is_file():
+                return candidate
         except (OSError, PermissionError):
             continue
     return None
@@ -96,7 +106,6 @@ def _real_component() -> pathlib.Path | None:
 def test_accepts_the_real_component_if_built():
     real = _real_component()
     if real is None:
-        pytest.skip("DXVM component not built in this environment (set DXVM_WCP to check one)")
+        pytest.skip("DXVM component not built here (set DXVM_WCP to check one)")
     r = run_verify(real)
     assert r.returncode == 0, f"{real}\n" + r.stdout + r.stderr
-
