@@ -160,9 +160,19 @@ object DxvmComponent {
      * checked on the *installed* directory before anything reaches the prefix: a component that
      * is not DXVM's must never become the DLLs Wine loads.
      */
-    suspend fun install(ctx: Context, wcp: File): Result<String> {
-        val installedResult = ContentManager.install(ctx, wcp)
-        val content = installedResult.getOrElse { return Result.failure(it) }
+    suspend fun install(ctx: Context, wcp: File): Result<String> =
+        ContentManager.install(ctx, wcp).getOrElse { return Result.failure(it) }.let { prove(ctx, it) }
+
+    /** Same proof as [install], for the archive the APK carries in `assets/components/`. */
+    suspend fun installBundled(ctx: Context, asset: String): Result<String> =
+        ContentManager.installAsset(ctx, asset, rootfs = false) { }
+            .getOrElse { return Result.failure(it) }.let { prove(ctx, it) }
+
+    /**
+     * Checks the *installed* directory carries DXVM's marker and `d3d11.dll` before anything
+     * reaches the prefix, then copies it in when the prefix already exists.
+     */
+    private fun prove(ctx: Context, content: InstalledContent): Result<String> {
         if (content.type != TYPE) {
             return Result.failure(IllegalStateException(
                 "installed component is '${content.type}', expected '$TYPE'"))
@@ -171,7 +181,11 @@ object DxvmComponent {
             ?: return Result.failure(IllegalStateException(
                 "component ${content.versionName} has no system32/$MARKER_NAME + $D3D11; " +
                     "it is not a DXVM component, so it was not put in the prefix"))
-        copyIntoPrefix(ctx, content.dir).onFailure { return Result.failure(it) }
+        // A prefix that does not exist yet gets DXVM on the first Wine launch (Containers.ensureDxvk
+        // copies from the same component); only copy here when there is already something to fix.
+        if (File(windowsDir(ctx), "system32").isDirectory) {
+            copyIntoPrefix(ctx, content.dir).onFailure { return Result.failure(it) }
+        }
         return Result.success(version)
     }
 }
