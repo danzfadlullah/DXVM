@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Build the DXVM component archive PanPlay installs as its DXVK.
+#
+# Layout (verified against PanPlay's unpacker): tar+zstd, profile.json +
+# system32/ + syswow64/ at the root, type "DXVK", and for an arm64ec prefix
+# system32 = arm64ec DLLs while syswow64 = i686 DLLs.
+#
+# Usage: build-dxvm-component.sh [--version V] [--out PATH] [DXVM_REPO]
+set -euo pipefail
+
+VERSION="0.1.0-alpha.1-arm64ec"
+OUT=""
+DXVM_REPO="${DXVM_REPO:-/root/workspace/DXVM/.worktrees/dxvm-clean-arch}"
+TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LLVM_MINGW_DIR="${LLVM_MINGW_DIR:-/root/tc/llvm-mingw-20260922-ucrt-ubuntu-22.04-aarch64}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --version) VERSION="$2"; shift 2 ;;
+    --out)     OUT="$2"; shift 2 ;;
+    -h|--help) sed -n '2,12p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    *) DXVM_REPO="$1"; shift ;;
+  esac
+done
+
+OUT="${OUT:-/root/workspace/dxvm-${VERSION}.wcp}"
+DLLS=(d3d10core d3d11 d3d8 d3d9 dxgi)
+
+need() { [[ -e "$1" ]] || { echo "missing: $1" >&2; exit 1; }; }
+
+# --- arm64ec (system32) ---
+if [[ ! -d "$DXVM_REPO/build-arm64ec" ]]; then
+  echo "== configuring arm64ec (this is the slow step)"
+  PATH="$LLVM_MINGW_DIR/bin:$PATH" meson setup \
+    --cross-file "$DXVM_REPO/build-win-arm64ec.txt" --buildtype release \
+    "$DXVM_REPO/build-arm64ec" >/dev/null
+fi
+echo "== building arm64ec"
+PATH="$LLVM_MINGW_DIR/bin:$PATH" meson compile -C "$DXVM_REPO/build-arm64ec" >/dev/null
+
+# --- i686 (syswow64) ---
+if [[ ! -d "$DXVM_REPO/build-win32" ]]; then
+  meson setup --cross-file "$DXVM_REPO/build-win32.txt" --buildtype release \
+    "$DXVM_REPO/build-win32" >/dev/null
+fi
+echo "== building i686"
+meson compile -C "$DXVM_REPO/build-win32" >/dev/null
+
+# --- stage ---
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+mkdir -p "$STAGE/system32" "$STAGE/syswow64"
+
+for d in "${DLLS[@]}"; do
+  need "$DXVM_REPO/build-arm64ec/src/$([ "$d" = d3d10core ] && echo d3d10 || echo "$d")/$d.dll"
+done
+
+cp "$DXVM_REPO/build-arm64ec/src/d3d11/d3d11.dll"     "$STAGE/system32/"
+cp "$DXVM_REPO/build-arm64ec/src/d3d9/d3d9.dll"       "$STAGE/system32/"
+cp "$DXVM_REPO/build-arm64ec/src/d3d8/d3d8.dll"       "$STAGE/system32/"
+cp "$DXVM_REPO/build-arm64ec/src/dxgi/dxgi.dll"       "$STAGE/system32/"
+cp "$DXVM_REPO/build-arm64ec/src/d3d10/d3d10core.dll" "$STAGE/system32/"
+
+cp "$DXVM_REPO/build-win32/src/d3d11/d3d11.dll"     "$STAGE/syswow64/"
+cp "$DXVM_REPO/build-win32/src/d3d9/d3d9.dll"       "$STAGE/syswow64/"
+cp "$DXVM_REPO/build-win32/src/d3d8/d3d8.dll"       "$STAGE/syswow64/"
+cp "$DXVM_REPO/build-win32/src/dxgi/dxgi.dll"       "$STAGE/syswow64/"
+cp "$DXVM_REPO/build-win32/src/d3d10/d3d10core.dll" "$STAGE/syswow64/"
+
+# Marker: proves the prefix received DXVM and not stock DXVK. Without it a
+# silent fallback to PanPlay's own DXVK is invisible in the report.
+printf '%s\n' "$VERSION" > "$STAGE/system32/dxvm-marker.txt"
+
+python3 - "$STAGE/profile.json" "$VERSION" <<'PY'
+import json, sys
+out, version = sys.argv[1], sys.argv[2]
+names = ["d3d10core.dll", "d3d11.dll", "d3d8.dll", "d3d9.dll", "dxgi.dll"]
+files = []
+for n in names:
+    files.append({"source": f"system32/{n}", "target": "${system32}/" + n})
+for n in names:
+    files.append({"source": f"syswow64/{n}", "target": "${syswow64}/" + n})
+json.dump({
+    "type": "DXVK",
+    "versionName": version,
+    "versionCode": 1,
+    "description": f"DXVM {version} - DXVK 3.1.1 fork for Mali-G615 (Valhall). arm64ec + i686.",
+    "files": files,
+}, open(out, "w"), indent=2)
+PY
+
+# --- pack + verify ---
+tar -cf - -C "$STAGE" profile.json system32 syswow64 | zstd -q -19 -o "$OUT"
+echo "== wrote $OUT ($(du -h "$OUT" | cut -f1))"
+
+python3 "$TOOLS/verify-component.py" "$OUT"

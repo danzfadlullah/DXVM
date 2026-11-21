@@ -44,7 +44,7 @@
 
 - [ ] **Step 1: Pin the upstream commit and vendor it**
 
-Record the exact commit of `zenithblue-oss/panplay` used, plus the `scripts/components.env` pins it depends on. Raise `minSdk` from PanPlay's 28 to **29** in `app/build.gradle.kts`: the Vulkan suites need API 29 (PanProbe's floor), and a lower floor would ship an app whose Vulkan tab cannot run. `FORK.md` lists each bundled component, its licence, and which ones this fork keeps (Proton, FEX, imagefs, Vox/WoW64 as needed) versus drops (vkd3d, audio) — and states that PanVK stays available only as an optional comparison.
+Record the exact commit of `zenithblue-oss/panplay` used, plus the `scripts/components.env` pins it depends on. **Keep `minSdk = 28` and `targetSdk = 28` exactly as PanPlay has them.** PanPlay's own comment states why: `targetSdk >= 29` enables W^X, which blocks `execve` of `wine`/`wineserver` from app data and makes `linker64` fail with "could not exec the wine loader". Raising it would break the engine this app exists to drive. The Vulkan C tests therefore compile against NDK API level 28; anything that genuinely needs an API-29 platform symbol is runtime-guarded and reports `SKIP` on older devices. (An earlier draft of this plan said to raise minSdk to 29 — that was wrong and is recorded in the ledger.) `FORK.md` lists each bundled component, its licence, and which ones this fork keeps (Proton, FEX, imagefs, Vox/WoW64 as needed) versus drops (vkd3d, audio) — and states that PanVK stays available only as an optional comparison.
 
 - [ ] **Step 2: Add the CI workflow**
 
