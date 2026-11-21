@@ -55,6 +55,18 @@ namespace {
     return false;
   }
 
+  // The child writes its result line to the file the parent named. Redirection
+  // happens here, not in the parent: CreateProcessA runs no shell.
+  void redirectChildOutput(int argc, char** argv) {
+    for (int i = 1; i + 1 < argc; i++) {
+      if (!std::strcmp(argv[i], "--child-out")) {
+        std::freopen(argv[i + 1], "wb", stdout);
+        std::fflush(stdout);
+        return;
+      }
+    }
+  }
+
   /** Read the first KEY=VALUE line from a file, or empty on failure. */
   std::string readWholeFile(const std::string& path) {
     std::string text;
@@ -121,6 +133,7 @@ int main(int argc, char** argv) {
   // Child mode must run before anything else: it exists to be isolated.
   std::string childScene;
   if (isSelfTestChild(argc, argv, childScene)) {
+    redirectChildOutput(argc, argv);
     const auto sel = registry.select(childScene);
     if (sel.empty()) {
       std::fprintf(stderr, "unknown scene: %s\n", childScene.c_str());
@@ -129,7 +142,10 @@ int main(int argc, char** argv) {
     SceneResult r = sel[0].fn();
     std::printf("%s\n", formatResult(sel[0].name, r).c_str());
     std::fflush(stdout);
-    return r.status == SceneStatus::Pass ? 0 : 1;
+    // The status lives in the printed line, so the exit code only signals
+    // whether the child survived to the end. A non-zero exit after a line is
+    // therefore a teardown crash, which the parent reports as CRASH.
+    return 0;
   }
 
   if (hasFlag(argc, argv, "--list")) {
@@ -156,6 +172,15 @@ int main(int argc, char** argv) {
     : scenesArg;
 
   const auto selected = registry.select(effectiveScenes);
+
+  // A mistyped --scenes filter must not look like a clean run.
+  if (!effectiveScenes.empty() && selected.empty()) {
+    std::string unknown = formatResult(effectiveScenes, SceneResult::fail(
+      "unknown scene name"));
+    std::printf("%s\n", unknown.c_str());
+    std::printf("%s\n", formatSummary(0, 1).c_str());
+    return 2;
+  }
 
   const auto apis    = parseApis(argValue(argc, argv, "--api", "all"));
   const Backend backend = parseBackend(argValue(argc, argv, "--backend", "raw"));
@@ -220,6 +245,33 @@ int main(int argc, char** argv) {
   report += formatSummary(passed, failed);
   report += '\n';
 
+  // Totals block: per-API passed/total across the three backends the harness
+  // can express (only the selected one has numbers today).
+  {
+    std::vector<TotalsRow> totals;
+
+    for (Api api : apis) {
+      int p = 0, total = 0;
+
+      for (const auto& row : rows) {
+        if (apiOfScene(row.name) != api)
+          continue;
+        total++;
+        if (row.result.status == SceneStatus::Pass)
+          p++;
+      }
+
+      const char* label =
+        api == Api::D3D11 ? "D3D11" :
+        api == Api::D3D10 ? "D3D10" : "D3D9";
+
+      totals.push_back(TotalsRow{ label, p, total, p, total, p, total });
+    }
+
+    report += "\n";
+    report += formatTotals(totals);
+  }
+
   std::fputs(report.c_str(), stdout);
 
   if (!outPath.empty()) {
@@ -228,6 +280,9 @@ int main(int argc, char** argv) {
       std::fclose(f);
     }
   }
+
+  if (passed == 0 && failed == 0)
+    return 3; // nothing ran: an empty report is not success
 
   return failed == 0 ? 0 : 1;
 }

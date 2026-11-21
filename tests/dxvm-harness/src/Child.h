@@ -24,6 +24,9 @@ namespace dxvmt {
   /** \brief Run one scene in a child process of \c exePath */
   ChildOutcome runSceneAsChild(const std::string& exePath, const std::string& sceneName);
 
+  /** \brief Per-scene timeout in milliseconds; a hung scene becomes CRASH */
+  int childTimeoutMs();
+
   /** \brief Parse `KEY=VALUE` lines, skipping blanks and `#` comments */
   std::vector<std::pair<std::string, std::string>> parseEnvLines(const std::string& text);
 

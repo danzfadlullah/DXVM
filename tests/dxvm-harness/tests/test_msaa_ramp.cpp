@@ -22,6 +22,13 @@ int main() {
   CHECK(expectedSampleIndexRamp(8)  == 60);
   CHECK(expectedSampleIndexRamp(16) == 128);
 
+  // The pinned values are not arbitrary: the shader writes idx*17 per sample,
+  // so the resolve averages to 17*(N-1)/2, rounded.
+  for (int n : { 2, 4, 8, 16 }) {
+    const int derived = (17 * (n - 1) + 1) / 2; // round-half-up of 17*(N-1)/2
+    CHECK(expectedSampleIndexRamp(n) == derived);
+  }
+
   // Unsupported counts have no expectation and must not be guessed.
   CHECK(expectedSampleIndexRamp(1)  == -1);
   CHECK(expectedSampleIndexRamp(3)  == -1);

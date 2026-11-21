@@ -35,7 +35,7 @@ dxvm_harness_src = files(
 # d3d10core is deliberately absent: mingw-w64 ships no libd3d10core.a, so the
 # D3D10 suite loads d3d10core.dll with LoadLibrary/GetProcAddress instead.
 dxvm_harness_libs = []
-foreach name : [ 'd3d11', 'dxgi', 'd3d9', 'd3dcompiler' ]
+foreach name : [ 'd3d11', 'dxgi', 'd3d9' ]
   dxvm_harness_libs += [ '-l' + name ]
 endforeach
 

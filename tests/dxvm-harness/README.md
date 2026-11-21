@@ -49,7 +49,7 @@ GPU: Mali-G615 ..., driver 13b5:...
 
 == Direct3D 11 suite (raw driver) ==
 PASS device.create      feature level 0xb000
-FAIL msaa.sampleindex   red is 0, expected 25 (same index for every sample?)
+FAIL msaa2.sampleindex  red is 26, expected 9
 SKIP compute            not ported yet
 ...
 SUMMARY 31 passed, 1 failed
@@ -74,7 +74,7 @@ Real end-to-end tests:
 | `device.create`, `device.featurelevels`, `device.formats` | device exists, level ≥ 11_0, required formats supportable | feature override table |
 | `msaacounts` | every sample count the driver reports is also creatable | feature/property reporting |
 | `msaa.coverage` | 4x MSAA resolve has 64 partial-coverage pixels on the diagonal | MSAA raster state |
-| `msaa.sampleindex` | resolved red equals the CPU mean of per-sample values | sample-index mapping |
+| `msaa2/4/8/16.sampleindex` | resolved red equals DXML's pinned ramp (9/26/60/128) | sample-index mapping |
 | `msaa.reference` | prints DXML's reference values (2x=9, 4x=26, 8x=60, 16x=128) | comparison aid |
 | `logicop`, `dualsource`, `wireframe`, `viewports` | emulated state still renders the expected colour | `dxvm_mali_state_emulation` |
 | `texture` | a 4x4 texture samples non-black | upload path |
@@ -100,7 +100,7 @@ FAIL msaa16.sampleindex red is 26, expected 128
 
 Both fail for DXVK 2.7.1 and 1.9.2 as well, while DXML's own engine passes, and
 `msaa4.texture2dms` passes — so the defect is in the `SV_SampleIndex` ramp, not
-in `Texture2DMS` reads. **A failing `msaa.sampleindex` on DXVM is the expected
+in `Texture2DMS` reads. **Failures on `msaa2.sampleindex` and `msaa16.sampleindex` are the expected
 first finding, not a harness bug.**
 
 ## Host-side unit tests

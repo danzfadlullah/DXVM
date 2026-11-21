@@ -20,6 +20,10 @@ int main(int argc, char** argv) {
 
   // Child mode: run one self-test scene in-process and print its result line.
   if (argc >= 3 && std::string(argv[1]) == "--selftest-child") {
+    for (int i = 1; i + 1 < argc; i++) {
+      if (std::string(argv[i]) == "--child-out")
+        std::freopen(argv[i + 1], "wb", stdout);
+    }
     Registry reg;
     registerSelfTestScenes(reg);
     const auto sel = reg.select(argv[2]);
@@ -30,7 +34,7 @@ int main(int argc, char** argv) {
     SceneResult r = sel[0].fn();
     std::printf("%s\n", formatResult(sel[0].name, r).c_str());
     std::fflush(stdout);
-    return r.status == SceneStatus::Pass ? 0 : 1;
+    return 0;
   }
 
   // --- Result lines: name padded to column 15, minimum one space. ---
@@ -95,6 +99,9 @@ int main(int argc, char** argv) {
   ChildOutcome crash = runSceneAsChild(self, "selftest.crash");
   CHECK(crash.result.status == SceneStatus::Crash);
   CHECK(!crash.result.detail.empty());
+
+  // CRASH details carry the spec's leading colon before the reason.
+  CHECK(crash.result.detail[0] == ':');
 
   if (failures) {
     std::fprintf(stderr, "%d check(s) failed\n", failures);

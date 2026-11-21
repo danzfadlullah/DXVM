@@ -12,6 +12,7 @@
   #endif
   #include <windows.h>
 #else
+  #include <csignal>
   #include <sys/types.h>
   #include <sys/wait.h>
   #include <unistd.h>
@@ -22,6 +23,8 @@ namespace dxvmt {
   namespace {
 
     constexpr const char* kChildFlag = "--selftest-child";
+    constexpr const char* kChildOut  = "--child-out";
+    constexpr int         kTimeoutMs = 120000;
 
     /** Read the first result line the child printed, if any. */
     ChildOutcome readChildOutput(const std::string& path, int exitCode) {
@@ -41,7 +44,6 @@ namespace dxvmt {
 
       std::fclose(f);
 
-      // Find the first line that is a result line.
       size_t start = 0;
 
       while (start < text.size()) {
@@ -61,19 +63,24 @@ namespace dxvmt {
         for (const auto& k : kinds) {
           const size_t len = std::strlen(k.prefix);
           if (line.size() >= len && !line.compare(0u, len, k.prefix)) {
-            // Strip the kind, then the padded name, keeping the detail.
             std::string rest = line.substr(len);
-            size_t nameEnd = rest.find(' ');
-            while (nameEnd != std::string::npos
-                && nameEnd + 1u < rest.size()
-                && rest[nameEnd + 1u] == ' ')
-              nameEnd = rest.find(' ', nameEnd + 1u);
+
+            // Skip the padded name: names may contain spaces, so consume
+            // tokens until a run of two or more spaces ends the name field.
+            size_t pos = rest.find("  ");
+            if (pos == std::string::npos) {
+              const size_t sp = rest.find(' ');
+              pos = (sp == std::string::npos) ? rest.size() : sp;
+              outcome.result.detail = (sp == std::string::npos)
+                ? std::string() : rest.substr(sp + 1u);
+            } else {
+              while (pos < rest.size() && rest[pos] == ' ')
+                pos++;
+              outcome.result.detail = rest.substr(pos);
+            }
 
             outcome.produced = true;
             outcome.result.status = k.status;
-            outcome.result.detail = (nameEnd == std::string::npos)
-              ? std::string()
-              : rest.substr(nameEnd + 1u);
             return outcome;
           }
         }
@@ -86,14 +93,20 @@ namespace dxvmt {
 
   }
 
+  int childTimeoutMs() {
+    return kTimeoutMs;
+  }
+
   ChildOutcome runSceneAsChild(const std::string& exePath, const std::string& sceneName) {
     const std::string outPath = exePath + ".scene-out.tmp";
 
 #ifdef _WIN32
 
+    // CreateProcessA runs no shell: "> file" would arrive as argv, not a
+    // redirect. The child is told the path and freopen()s it itself.
     char cmd[2048];
-    std::snprintf(cmd, sizeof(cmd), "\"%s\" %s %s > \"%s\" 2>&1",
-      exePath.c_str(), kChildFlag, sceneName.c_str(), outPath.c_str());
+    std::snprintf(cmd, sizeof(cmd), "\"%s\" %s %s %s \"%s\"",
+      exePath.c_str(), kChildFlag, sceneName.c_str(), kChildOut, outPath.c_str());
 
     STARTUPINFOA si = { };
     si.cb = sizeof(si);
@@ -104,11 +117,15 @@ namespace dxvmt {
     if (!CreateProcessA(nullptr, mutableCmd.data(), nullptr, nullptr, FALSE,
           CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
       ChildOutcome outcome;
-      outcome.result = SceneResult::crash("could not spawn child");
+      outcome.result = SceneResult::crash(": could not spawn child");
       return outcome;
     }
 
-    WaitForSingleObject(pi.hProcess, INFINITE);
+    const DWORD wait = WaitForSingleObject(pi.hProcess, static_cast<DWORD>(kTimeoutMs));
+    const bool timedOut = (wait == WAIT_TIMEOUT);
+
+    if (timedOut)
+      TerminateProcess(pi.hProcess, 0xDEADu);
 
     DWORD code = 0;
     GetExitCodeProcess(pi.hProcess, &code);
@@ -118,8 +135,15 @@ namespace dxvmt {
     ChildOutcome outcome = readChildOutput(outPath, static_cast<int>(code));
     std::remove(outPath.c_str());
 
-    if (!outcome.produced) {
-      outcome.result = SceneResult::crash("exit " + std::to_string(code));
+    if (timedOut) {
+      outcome.produced = false;
+      outcome.result = SceneResult::crash(": timeout");
+    } else if (!outcome.produced) {
+      outcome.result = SceneResult::crash(": exit " + std::to_string(code));
+    } else if (code != 0u) {
+      // Printed a result then died anyway (teardown crash): never a PASS.
+      outcome.result = SceneResult::crash(": exit " + std::to_string(code)
+        + " after result");
     }
 
     return outcome;
@@ -130,34 +154,52 @@ namespace dxvmt {
 
     if (pid < 0) {
       ChildOutcome outcome;
-      outcome.result = SceneResult::crash("fork failed");
+      outcome.result = SceneResult::crash(": fork failed");
       return outcome;
     }
 
     if (pid == 0) {
-      // Child: send both streams to the temp file, then exec the same binary.
       if (!std::freopen(outPath.c_str(), "wb", stdout))
         _exit(126);
       dup2(STDOUT_FILENO, STDERR_FILENO);
 
       execl(exePath.c_str(), exePath.c_str(), kChildFlag, sceneName.c_str(),
-        static_cast<char*>(nullptr));
+        kChildOut, outPath.c_str(), static_cast<char*>(nullptr));
       _exit(127);
     }
 
     int status = 0;
-    waitpid(pid, &status, 0);
+    bool timedOut = false;
 
-    int code = WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
+    for (int waited = 0; waited < kTimeoutMs; waited += 50) {
+      const pid_t r = waitpid(pid, &status, WNOHANG);
+      if (r == pid || r < 0)
+        break;
+      usleep(50 * 1000);
+      if (waited + 50 >= kTimeoutMs) {
+        kill(pid, SIGKILL);
+        waitpid(pid, &status, 0);
+        timedOut = true;
+        break;
+      }
+    }
+
+    const int code = WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 
     ChildOutcome outcome = readChildOutput(outPath, code);
     std::remove(outPath.c_str());
 
-    if (!outcome.produced) {
+    if (timedOut) {
+      outcome.produced = false;
+      outcome.result = SceneResult::crash(": timeout");
+    } else if (!outcome.produced) {
       outcome.result = SceneResult::crash(
         WIFSIGNALED(status)
-          ? "signal " + std::to_string(WTERMSIG(status))
-          : "exit " + std::to_string(code));
+          ? ": signal " + std::to_string(WTERMSIG(status))
+          : ": exit " + std::to_string(code));
+    } else if (code != 0) {
+      outcome.result = SceneResult::crash(": exit " + std::to_string(code)
+        + " after result");
     }
 
     return outcome;

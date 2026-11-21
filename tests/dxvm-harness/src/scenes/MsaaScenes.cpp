@@ -177,34 +177,29 @@ namespace dxvmt {
         return false;
       }
 
+      // The vertex blob must stay alive until the input layout is built: it
+      // backs the layout's bytecode copy, so releasing it first is a
+      // use-after-free.
       HRESULT hr = device->CreateVertexShader(vsBlob->GetBufferPointer(),
         vsBlob->GetBufferSize(), nullptr, &rc.vs);
       hr = FAILED(hr) ? hr : device->CreatePixelShader(psBlob->GetBufferPointer(),
         psBlob->GetBufferSize(), nullptr, &rc.ps);
+
+      if (SUCCEEDED(hr)) {
+        D3D11_INPUT_ELEMENT_DESC elems[] = {
+          { "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT,    0u, 0u,  D3D11_INPUT_PER_VERTEX_DATA, 0u },
+          { "COLOR",    0u, DXGI_FORMAT_R32G32B32A32_FLOAT, 0u, 12u, D3D11_INPUT_PER_VERTEX_DATA, 0u },
+        };
+
+        hr = device->CreateInputLayout(elems, 2u, vsBlob->GetBufferPointer(),
+          vsBlob->GetBufferSize(), &rc.layout);
+      }
 
       vsBlob->Release();
       psBlob->Release();
 
       if (FAILED(hr))
         return false;
-
-      D3D11_INPUT_ELEMENT_DESC elems[] = {
-        { "POSITION", 0u, DXGI_FORMAT_R32G32B32_FLOAT,    0u, 0u,  D3D11_INPUT_PER_VERTEX_DATA, 0u },
-        { "COLOR",    0u, DXGI_FORMAT_R32G32B32A32_FLOAT, 0u, 12u, D3D11_INPUT_PER_VERTEX_DATA, 0u },
-      };
-
-      if (FAILED(device->CreateInputLayout(elems, 2u,
-          vsBlob ? vsBlob->GetBufferPointer() : nullptr, 0u, &rc.layout))) {
-        // Recreate from a fresh blob: the original was released above.
-        ID3DBlob* again = compile(kVertexShader, "main", "vs_5_0");
-        if (!again)
-          return false;
-        const HRESULT hr2 = device->CreateInputLayout(elems, 2u,
-          again->GetBufferPointer(), again->GetBufferSize(), &rc.layout);
-        again->Release();
-        if (FAILED(hr2))
-          return false;
-      }
 
       const float verts[] = {
         // x, y, z,        r, g, b, a
@@ -393,17 +388,28 @@ namespace dxvmt {
       return SceneResult::pass("4x MSAA triangle resolved, diagonal edge has partial coverage");
     }
 
-    SceneResult sceneMsaaSampleIndex() {
+    // Sample-index ramp, parameterised by sample count.
+    //
+    // The shader writes red = idx * 255/15 = idx * 17 for each sample; the
+    // resolve averages over all N samples, giving 17*(N-1)/2:
+    //   2x -> 8.5 -> 9     4x -> 25.5 -> 26
+    //   8x -> 59.5 -> 60  16x -> 127.5 -> 128
+    // which is exactly DXML's pinned table. Stock DXVK 3.1.1 reports 26 for
+    // both 2x and 16x, so this scene reproduces that failure verbatim.
+    SceneResult runSampleIndexScene(UINT count) {
+      const int want = expectedSampleIndexRamp(static_cast<int>(count));
+
+      if (want < 0)
+        return SceneResult::skip("no pinned expectation for this sample count");
+
       RenderContext rc;
       std::string error;
 
       if (!createD3D11(rc.ctx, error))
         return SceneResult::fail(error);
 
-      const UINT count = 4u;
-
       if (!createMsaaTargets(rc, count, DXGI_FORMAT_R8G8B8A8_UNORM))
-        return SceneResult::skip("4x MSAA not supported");
+        return SceneResult::skip(std::to_string(count) + "x MSAA not supported");
 
       if (!createPipeline(rc, kSampleIndexShader))
         return SceneResult::skip("shader compiler unavailable");
@@ -415,23 +421,21 @@ namespace dxvmt {
       if (!mapAndRead(rc, px, 10u, 20u))
         return SceneResult::fail("readback map failed");
 
-      // Fully covered interior pixel: the resolve averages the per-sample
-      // values over all four samples. With value = idx * 255/15 the mean is
-      // (0+1+2+3)/4 * 255/15 = 25.5, so 25 or 26 depending on rounding. A
-      // device that reports the same index for every sample yields 0 or 255.
-      const int want = 25;
-      const int got  = static_cast<int>(px.r);
-      const bool ok  = got == want || got == want + 1;
+      const int got = static_cast<int>(px.r);
 
-      if (!ok) {
+      if (got != want) {
         return SceneResult::fail("red is " + std::to_string(got)
-          + ", expected " + std::to_string(want)
-          + " (same index for every sample?)");
+          + ", expected " + std::to_string(want));
       }
 
-      return SceneResult::pass("resolved red is " + std::to_string(got)
+      return SceneResult::pass("red is " + std::to_string(got)
         + ", expected " + std::to_string(want));
     }
+
+    SceneResult sceneMsaa2SampleIndex()  { return runSampleIndexScene(2u); }
+    SceneResult sceneMsaa4SampleIndex()  { return runSampleIndexScene(4u); }
+    SceneResult sceneMsaa8SampleIndex()  { return runSampleIndexScene(8u); }
+    SceneResult sceneMsaa16SampleIndex() { return runSampleIndexScene(16u); }
 
     SceneResult sceneMsaaReference() {
       std::string detail;
@@ -448,7 +452,10 @@ namespace dxvmt {
   void registerMsaaScenes(Registry& registry) {
     registry.add("msaacounts",       &sceneMsaaCounts);
     registry.add("msaa.coverage",    &sceneMsaaCoverage);
-    registry.add("msaa.sampleindex", &sceneMsaaSampleIndex);
+    registry.add("msaa2.sampleindex",  &sceneMsaa2SampleIndex);
+    registry.add("msaa4.sampleindex",  &sceneMsaa4SampleIndex);
+    registry.add("msaa8.sampleindex",  &sceneMsaa8SampleIndex);
+    registry.add("msaa16.sampleindex", &sceneMsaa16SampleIndex);
     registry.add("msaa.reference",   &sceneMsaaReference);
   }
 
