@@ -235,3 +235,33 @@ arm64ec source changes is therefore answered: **none needed**.
 
 Still unverified: the exact `.wcp` component layout PanPlay expects (must be read
 from its unpacker, not guessed) and whether Wine loads these DLLs in practice.
+
+## Component layout — verified against PanPlay's unpacker (resolves the open question)
+
+Read from `Contents.kt` / `Containers.kt` rather than guessed:
+
+- A component is a **tar.xz or tar.zst** archive with `profile.json`, `system32/` and
+  `syswow64/` **at the archive root**.
+- `profile.json` must carry `type` and `versionName`; both are sanitised to
+  `[A-Za-z0-9._-]` and become the install path `filesDir/contents/<type>/<versionName>/`.
+  An existing destination makes the install fail with "already installed, delete first",
+  so `versionName` must be unique per build. Profile is capped at 64 KiB.
+- PanPlay's DXVK entry is `type = "DXVK"`, `versionName = "3.1.1-4-arm64ec"`.
+- `files[]` maps `{source, target}` with `${system32}/<name>.dll` and
+  `${syswow64}/<name>.dll` targets; installation copies
+  `system32/*` → `drive_c/windows/system32` and `syswow64/*` → `drive_c/windows/syswow64`.
+- For an arm64ec prefix: **system32 = arm64ec DLLs, syswow64 = i686 DLLs.**
+
+DXVM's existing Windows `.wcp` already matched every one of these (tar+zstd, root
+`profile.json`, `type: "DXVK"`, `${system32}`/`${syswow64}` targets). The only change needed
+is which architecture goes in which directory.
+
+A conforming component was produced and verified:
+
+`dxvm-0.1.0-alpha.1-arm64ec.wcp` (12 MB) — `system32/` holds the five ARM64EC DLLs
+(d3d11 8360 KB, d3d9 7460 KB, dxgi 5624 KB, d3d8 1932 KB, d3d10core 472 KB) and
+`syswow64/` holds the five i686 DLLs. Architecture confirmed per file: ARM64EC images
+(x64-compatible header plus `arm64x` metadata) and i686 PE respectively.
+
+Still unverified: whether Wine actually loads these in a PanPlay container — that needs the
+owner's phone and is the first thing the app should report.
