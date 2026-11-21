@@ -91,17 +91,21 @@ echo "== llvm-mingw: $LLVM_MINGW_DIR"
 if [[ ! -d "$DXVM_REPO/build-arm64ec" ]]; then
   echo "== configuring arm64ec (this is the slow step)"
   export PATH="$LLVM_MINGW_DIR/bin:$PATH"
+  # Build dir FIRST, source dir SECOND: with only a build dir meson looks for meson.build
+  # inside it, which fails on a fresh checkout (it only appears to work when the directory was
+  # already configured).
   run_quiet meson setup \
-    --cross-file "$DXVM_REPO/build-win-arm64ec.txt" --buildtype release \
-    "$DXVM_REPO/build-arm64ec"
+    "$DXVM_REPO/build-arm64ec" "$DXVM_REPO" \
+    --cross-file "$DXVM_REPO/build-win-arm64ec.txt" --buildtype release
 fi
 echo "== building arm64ec"
 run_quiet meson compile -C "$DXVM_REPO/build-arm64ec"
 
 # --- i686 (syswow64) ---
 if [[ ! -d "$DXVM_REPO/build-win32" ]]; then
-  run_quiet meson setup --cross-file "$DXVM_REPO/build-win32.txt" --buildtype release \
-    "$DXVM_REPO/build-win32"
+  run_quiet meson setup \
+    "$DXVM_REPO/build-win32" "$DXVM_REPO" \
+    --cross-file "$DXVM_REPO/build-win32.txt" --buildtype release
 fi
 echo "== building i686"
 run_quiet meson compile -C "$DXVM_REPO/build-win32"
