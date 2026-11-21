@@ -54,23 +54,23 @@ object VkTests {
      * Runs one suite. A native failure is reported as a SKIP *with the reason*, never dropped:
      * a missing line would be a bug, an explicit skip is acceptable.
      */
-    fun run(name: String): ResultLine {
+    fun run(name: String): D3DSuite.ResultLine {
         if (!library) {
-            return ResultLine("SKIP", name, "Vulkan suite not present in this build")
+            return D3DSuite.ResultLine("SKIP", name, "Vulkan suite not present in this build")
         }
         return try {
             val raw = runNative(name)
             val bar = raw.indexOf('|')
-            if (bar < 0) return ResultLine("FAIL", name, "malformed suite result: $raw")
+            if (bar < 0) return D3DSuite.ResultLine("FAIL", name, "malformed suite result: $raw")
             val code = raw.substring(0, bar).trim().toIntOrNull() ?: 2
-            ResultLine(kind(code), name, raw.substring(bar + 1))
+            D3DSuite.ResultLine(kind(code), name, raw.substring(bar + 1))
         } catch (t: Throwable) {
-            ResultLine("SKIP", name, "suite call failed: ${t.message}")
+            D3DSuite.ResultLine("SKIP", name, "suite call failed: ${t.message}")
         }
     }
 
     /** Runs every registered suite. */
-    fun runAll(): List<ResultLine> = names().map { run(it) }
+    fun runAll(): List<D3DSuite.ResultLine> = names().map { run(it) }
 
     /**
      * The device and driver that answered: vendor id, driver id, device name, driver name,

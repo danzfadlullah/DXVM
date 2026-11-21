@@ -10,12 +10,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
-/** One result line of either suite, in the shared DXML shape. */
-data class ResultLine(val kind: String, val name: String, val detail: String)
-
-/** Per-section tallies as the harness reported them. */
-data class SectionSummary(val passed: Int, val failed: Int)
-
 /**
  * The Direct3D half: run DXVM's own harness (`dxvm-harness.exe`, built by this repository) inside
  * the Wine container and read its report.
@@ -28,6 +22,12 @@ data class SectionSummary(val passed: Int, val failed: Int)
  * not whatever an earlier prefix state left in system32.
  */
 object D3DSuite {
+    /** One result line of either suite, in the shared DXML shape. */
+    data class ResultLine(val kind: String, val name: String, val detail: String)
+
+    /** Per-section tallies as the harness reported them. */
+    data class SectionSummary(val passed: Int, val failed: Int)
+
     const val HARNESS_ASSET = "harness/dxvm-harness.exe"
     const val EXE_NAME = "dxvm-harness.exe"
     const val REPORT_NAME = "dxvm-report.txt"
