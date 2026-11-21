@@ -211,3 +211,27 @@ Before calling this done, the report from a real phone must show: driver identit
 D3D halves, the Vulkan halves, and at least one `FAIL` or `PASS` that differs between
 `system+DXVM` and `PanVK+DXVK`. A report that cannot distinguish the two drivers has
 failed the app's purpose.
+## Feasibility verified (2026-11-21)
+
+The arm64ec half of this design was tested end to end before committing to it:
+
+- `llvm-mingw 20260922` ships an **aarch64 Linux host** build
+  (`llvm-mingw-20260922-ucrt-ubuntu-22.04-aarch64.tar.xz`, 74 MB), and its
+  `arm64ec-w64-mingw32-clang` runs on this arm64 host (clang 23.1.2,
+  target `arm64ec-w64-windows-gnu`).
+- DXVM configures and builds for arm64ec with a cross file and **no source
+  changes**: 305 objects, 0 errors, all five DLLs linked
+  (`d3d11.dll` 8360 KB, `d3d9.dll` 7460 KB, `dxgi.dll` 5624 KB,
+  `d3d8.dll` 1932 KB, `d3d10core.dll` 472 KB).
+- The images are genuine ARM64EC hybrids: PE machine type is the x64-compatible
+  `0x8664`, while the ARM64EC/ARM64X runtime symbols
+  (`_icall_helper_arm64ec`, `__os_arm64x_dispatch_ret`,
+  `__arm64x_redirection_metadata_count`) are present — the layout Proton arm64ec
+  and PanPlay's DXVK component use.
+
+Cross file added: `build-win-arm64ec.txt` (mirrors PanPlay's
+`runtimes/dxvk/arm64ec.txt`). The open question in "Left to the builder" about
+arm64ec source changes is therefore answered: **none needed**.
+
+Still unverified: the exact `.wcp` component layout PanPlay expects (must be read
+from its unpacker, not guessed) and whether Wine loads these DLLs in practice.
