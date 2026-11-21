@@ -7,6 +7,19 @@ DXVM ships Windows DLLs (`d3d8`, `d3d9`, `d3d10core`, `d3d11`, `dxgi`) for use u
 > **Status:** architecture cleanup complete. See [current limitations](#current-limitations) before use.
 > Development: [`dxvm-clean-arch`](https://github.com/danzfadlullah/DXVM/pull/1) · [design spec](docs/superpowers/specs/2026-11-20-dxvm-clean-architecture-design.md) · [implementation plan](docs/superpowers/plans/2026-11-20-dxvm-clean-architecture.md)
 
+## Testing on Android (separate repository)
+
+The Android **DXVM TestPack** — the app that runs this Direct3D harness and a Vulkan capability
+suite against a phone's own driver and writes one DXML-shaped report — lives in its own
+repository: **[danzfadlullah/DXVM-TestPack](https://github.com/danzfadlullah/DXVM-TestPack)**.
+
+The dependency runs one way: the TestPack builds DXVM from a checkout of this repository, and
+DXVM never references the TestPack. Two things here exist for it:
+
+- `tests/dxvm-harness/` — the Direct3D scene matrix the app runs inside its container.
+- `build-win-arm64ec.txt` — the arm64ec cross file, so DXVM's DLLs can be built for an arm64ec
+  Wine prefix (verified end to end: genuine ARM64EC hybrids, no source changes needed).
+
 ---
 
 ## Why DXVM?
