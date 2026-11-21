@@ -65,8 +65,10 @@ object TestReport {
                 for ((label, value) in header.device) appendLine("$label $value")
                 appendLine()
             }
-            section(this, "== Direct3D 11 suite ==", d3d)
-            section(this, "== Vulkan capabilities ==", vk)
+            // The spec's report sample names the driver in every section header, not only in the
+            // header block: a section pasted on its own must still be interpretable.
+            section(this, "== Direct3D 11 suite (${driverKind(header.driver)}) ==", d3d)
+            section(this, "== Vulkan capabilities (${driverKind(header.driver)}) ==", vk)
             if (passed == 0 && failed == 0) {
                 appendLine("NOTE: nothing ran")
                 appendLine()
@@ -74,6 +76,13 @@ object TestReport {
             appendLine("== Totals (pass/total) ==")
             for (row in totalsRows(d3d, vk)) appendLine(row)
         }
+    }
+
+    /** `system driver`, `PanVK`, ... — what produced this section, taken from the driver line. */
+    fun driverKind(driverLine: String): String = when {
+        driverLine.startsWith("Driver: system") -> "system driver"
+        driverLine.startsWith("Driver: PanVK") -> "PanVK"
+        else -> "driver not identified"
     }
 
     private fun section(out: StringBuilder, title: String, lines: List<D3DSuite.ResultLine>) {

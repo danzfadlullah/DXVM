@@ -84,6 +84,14 @@ class TestReportTest {
         assertTrue(out.contains("PASS device.create  feature level 0xb000"))
     }
 
+    @Test fun sectionHeadersNameTheDriverLikeTheSpecSample() {
+        val out = TestReport.build(header(), emptyList(), emptyList())
+        assertTrue(out.contains("== Direct3D 11 suite (system driver) =="))
+        assertTrue(out.contains("== Vulkan capabilities (system driver) =="))
+        assertEquals("PanVK", TestReport.driverKind("Driver: PanVK beta.9"))
+        assertEquals("driver not identified", TestReport.driverKind("Driver: unknown, ?"))
+    }
+
     @Test fun theDeviceBlockIsReadableAndPresent() {
         val out = TestReport.build(header(), emptyList(), emptyList())
         for (line in listOf("Model:", "Chip:", "GPU:", "Android:", "Build:")) {

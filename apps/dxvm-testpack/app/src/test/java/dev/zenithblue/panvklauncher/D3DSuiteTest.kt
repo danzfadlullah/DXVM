@@ -84,6 +84,21 @@ class D3DSuiteTest {
         assertEquals("PASS exactly15chars detail", D3DSuite.formatResult("PASS", "exactly15chars", "detail"))
     }
 
+    @Test fun commandLinePinsTheApiScopeAndTheOutFile() {
+        // The report's section title claims the api scope, so the harness must be told the same
+        // scope rather than falling back to its own default.
+        val args = D3DSuite.commandLine("d3d11,d3d10,d3d9")
+        assertEquals(listOf("--api", "d3d11,d3d10,d3d9", "--out", "C:\\dxvmt\\dxvm-report.txt"), args)
+    }
+
+    @Test fun theReportFileTheHarnessWritesIsTheOneWeRead() {
+        // C:\dxvmt\... must be <prefix>/drive_c/dxvmt/... , or the owner's run produces nothing.
+        assertTrue(D3DSuite.REPORT_WINDOWS_PATH.endsWith(D3DSuite.REPORT_NAME))
+        // drive_c is C: inside Wine, so the Windows path and the Android path agree.
+        assertEquals("container/.wine/drive_c/dxvmt", D3DSuite.STAGE_RELATIVE)
+        assertTrue(D3DSuite.REPORT_WINDOWS_PATH.startsWith("C:\\dxvmt\\"))
+    }
+
     @Test fun formatAndParseRoundTrip() {
         val line = D3DSuite.formatResult("FAIL", "bcn.bc7", "block fixture not ported yet")
         val parsed = D3DSuite.parse(line)

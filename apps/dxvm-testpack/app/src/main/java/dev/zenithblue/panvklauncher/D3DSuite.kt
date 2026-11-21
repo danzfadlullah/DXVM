@@ -38,9 +38,23 @@ object D3DSuite {
     /** DXML puts the detail at column 15 and never emits zero spaces (Report.cpp's kNameColumn). */
     private const val NAME_COLUMN = 15
 
+    /** Where the harness is staged, relative to filesDir: the prefix's drive_c, i.e. `C:\` in Wine. */
+    const val STAGE_RELATIVE = "container/.wine/drive_c/dxvmt"
+
     /** Where the harness is staged inside the prefix: `C:\dxvmt\` under Wine. */
-    fun stageDir(ctx: Context): File =
-        File(ctx.filesDir, "container/.wine/drive_c/dxvmt")
+    fun stageDir(ctx: Context): File = File(ctx.filesDir, STAGE_RELATIVE)
+
+    /** The in-Wine path the harness writes its report to (drive_c maps to `C:`). */
+    const val REPORT_WINDOWS_PATH = "C:\\dxvmt\\$REPORT_NAME"
+
+    /**
+     * The harness's command line. The API scope is passed explicitly rather than relying on the
+     * harness's own default, because the report's section title claims this scope and a title
+     * that does not describe what ran is exactly the kind of lie this app must not tell.
+     * `--out` gives a file to read as well as the stdout the container forwards.
+     */
+    fun commandLine(api: String): List<String> =
+        listOf("--api", api, "--out", REPORT_WINDOWS_PATH)
 
     /** The DXML line for one result, matching `Report.cpp`'s padding byte for byte. */
     fun formatResult(kind: String, name: String, detail: String): String {
@@ -147,7 +161,8 @@ object D3DSuite {
         // rather than hanging the test screen forever.
         val worker = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val job = worker.async {
-            ContainerManager.runExe(ctx, exe.absolutePath, { line -> captured.add(line) })
+            ContainerManager.runExe(ctx, exe.absolutePath, { line -> captured.add(line) },
+                LaunchOptions(args = commandLine(api)))
         }
         val exit = withTimeoutOrNull(timeoutMs) { job.await() }
         if (exit == null) {
@@ -175,12 +190,4 @@ object D3DSuite {
         appendLine("SUMMARY 0 passed, 1 failed")
     }
 
-    /**
-     * Combines the harness's own sections with the header this app writes, so the report reads as
-     * one document whether the harness succeeded or not.
-     */
-    fun withHeader(api: String, report: String): String {
-        val section = "== Direct3D 11 suite ($api) =="
-        return if (report.contains(section)) report else section + "\n" + report
-    }
 }
