@@ -210,6 +210,32 @@ class ControllerConfig(
 }
 
 /**
+ * Short description for lists: "Left: WASD · Right: mouse look · keys + mouse".
+ *
+ * Lives here rather than beside the controller editor: this fork ships no editor UI (Task 3
+ * strips the launcher surface), but the built-in X server's in-game menu still shows it.
+ */
+fun ControllerConfig.summary(): String {
+    fun st(s: StickConfig, left: Boolean): String {
+        val d = s.asDirs().dirs
+        return when {
+            d.all { it == "none" } -> "off"
+            d.all(ControllerKeys::isPad) -> "pad"
+            d.all { it.startsWith("mouse:") } -> "mouse look"
+            else -> stickCaption(left).ifEmpty { listOf(d[0], d[2], d[1], d[3]).joinToString("/") { ControllerKeys.short(it) } }
+        }
+    }
+    val pads = ControllerConfig.IDS.count { ControllerKeys.isPad(bindings[it] ?: "") }
+    val out = when {
+        output == "both" -> "keys + pad"
+        pads == ControllerConfig.IDS.size -> "Xbox pad"
+        pads > 0 -> "pad + keys + mouse"
+        else -> "keys + mouse"
+    }
+    return "Left: ${st(leftStick, true)} · Right: ${st(rightStick, false)} · $out"
+}
+
+/**
  * Named controller configs. Templates = asset presets (read-only, clone to change). User configs live in
  * files/controller-lib/<id>.json. A game points at one with {"ref": "lib:<id>"} / {"ref": "preset:<asset>"}
  * in files/controller/<shortcutId>.json, or keeps its own full config there ("game's own").

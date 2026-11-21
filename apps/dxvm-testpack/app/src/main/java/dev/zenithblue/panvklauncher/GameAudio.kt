@@ -5,6 +5,20 @@ import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
+ * One line of the launch card: what it is, what is installed, and whether it is usable.
+ *
+ * This fork ships no launch card (Task 3 strips the launcher surface), and the audio driver row
+ * below is the only remaining producer. It lives here rather than in a deleted file so the
+ * container launch path keeps compiling.
+ */
+data class LaunchItem(
+    val label: String,
+    val name: String,
+    val version: String,
+    val missing: Boolean = false
+)
+
+/**
  * Game audio for Wine (runtimes/audio/README.md). Proton's aarch64-unix winepulse.so / winealsa.so load libpulse.so /
  * libasound.so from the PulseAudio / ALSA components (built by scripts/build-audio.sh), found first on LD_LIBRARY_PATH.
  *  - "pulse": a pulseaudio daemon (module-aaudio-sink) runs as a child for the game session; socket in files/audio/pulse.
@@ -41,8 +55,7 @@ object GameAudio {
     }
 
     /** Installed component version shown on the launch card, e.g. "PulseAudio v17.0-2". */
-    fun describe(ctx: Context, d: String): LaunchItem {
-        if (d == OFF) return LaunchItem("Audio", "Off", "no audio device")
+    fun describe(ctx: Context, d: String): LaunchItem {        if (d == OFF) return LaunchItem("Audio", "Off", "no audio device")
         val c = component(ctx, d) ?: return LaunchItem("Audio", label(d), "not installed", missing = true)
         return LaunchItem("Audio", label(d), versionLabel(c.versionName))
     }

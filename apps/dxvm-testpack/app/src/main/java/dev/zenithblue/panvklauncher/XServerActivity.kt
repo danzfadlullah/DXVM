@@ -208,7 +208,6 @@ private fun InGameMenu(onControlsChanged: () -> Unit, onStop: () -> Unit, onDism
     val ctx = LocalContext.current
     val id = GameSession.shortcutId
     var rev by remember { mutableStateOf(0) }
-    var editing by remember { mutableStateOf(false) }
     val cfg = remember(rev) { ControllerInput.config }
     val ref = remember(rev) { id?.let { ControllerLibrary.assignment(ctx, it) } ?: "" }
     val options = remember(rev) {
@@ -228,10 +227,6 @@ private fun InGameMenu(onControlsChanged: () -> Unit, onStop: () -> Unit, onDism
         onControlsChanged(); rev++
     }
 
-    if (editing && id != null) {
-        GameControllerEditor(id, GameSession.name, GameSession.exePath) { editing = false; reload() }
-        return
-    }
     var confirmStop by remember { mutableStateOf(false) }
     var customFps by remember { mutableStateOf(false) }
     fun setFps(n: Int) {
@@ -282,13 +277,14 @@ private fun InGameMenu(onControlsChanged: () -> Unit, onStop: () -> Unit, onDism
 
                     Column(Modifier.padding(horizontal = 8.dp)) {
                         MenuRow(Icons.Rounded.PlayArrow, "Resume", onDismiss, Modifier.focusRequester(first))
-                        MenuRow(
-                            Icons.Rounded.SportsEsports, "Controls", { editing = true },
-                            supporting = if (id != null) "${cfg.name} · ${cfg.summary()}" else "${cfg.name}. Add this exe as a game to change its controls.",
-                            enabled = id != null
-                        )
                     }
                     if (id != null) {
+                        Text(
+                            "${cfg.name} · ${cfg.summary()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = cs.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                        )
                         DropdownField(
                             "Controller config", options, ref, { ControllerLibrary.assign(ctx, id, it); reload() },
                             Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp)

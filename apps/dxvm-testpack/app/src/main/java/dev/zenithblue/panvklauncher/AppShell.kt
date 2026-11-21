@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Gamepad
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Receipt
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.SportsEsports
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,12 +34,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 
+/**
+ * The test shell's navigation surface. This fork has no game launcher: the four screens are
+ * Test, Components, Drivers and the log view (the shell's sub-screen, opened from the top bar).
+ */
 enum class AppTab(val title: String, val icon: ImageVector) {
-    Games("Games", Icons.Rounded.SportsEsports),
-    Controls("Controls", Icons.Rounded.Gamepad),
+    Test("Test", Icons.Rounded.PlayArrow),
     Components("Components", Icons.Rounded.Inventory2),
-    Drivers("Drivers", Icons.Rounded.Memory),
-    Settings("Settings", Icons.Rounded.Settings)
+    Drivers("Drivers", Icons.Rounded.Memory)
 }
 
 /**

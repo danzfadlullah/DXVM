@@ -129,7 +129,7 @@ fun LauncherApp(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var selectedTab by remember { mutableStateOf(AppTab.Games) }
+    var selectedTab by remember { mutableStateOf(AppTab.Test) }
     var showLogs by remember { mutableStateOf(false) }
     var drivers by remember { mutableStateOf(DriverManager.getDrivers(context)) }
     var selectedDriverId by remember { mutableStateOf(DriverManager.getSelectedDriverId(context)) }
@@ -475,8 +475,6 @@ fun LauncherApp(
             }
         )
     }
-    WhatsNewDialog(enabled = !showStorageDialog)
-
     fun runExeWithPermission(path: String, sc: Shortcut? = null) {
         val appFiles = context.filesDir.absolutePath
         val appData = context.applicationInfo.dataDir
@@ -749,16 +747,9 @@ fun LauncherApp(
     ) { shown ->
         when (shown) {
             null -> LogsScreen(logs)
-            AppTab.Games -> GamesScreen(
-                drivers = drivers,
-                activeDriver = selectedDriver,
-                defaultResolution = displayRes,
-                busy = wineBusy,
-                runningName = if (isSettingUp) "Setting up container" else runningName,
-                onStop = { stopWine() },
-                onLaunch = { runShortcut(it) }
+            AppTab.Test -> TestScreen(
+                onOpenComponents = { selectedTab = AppTab.Components }
             )
-            AppTab.Controls -> ControlsScreen(onLog = { addLog(it) })
             AppTab.Components -> ComponentsScreen(
                 catalog = ContentManager.CATALOG,
                 installedList = installedComponents,
@@ -819,47 +810,6 @@ fun LauncherApp(
                         onSelect = { select() }
                     )
                 }
-            )
-            AppTab.Settings -> SettingsScreen(
-                themeMode = themeMode,
-                onThemeMode = onThemeMode,
-                dynamicColor = dynamicColor,
-                onDynamicColor = onDynamicColor,
-                isSetup = isContainerSetup,
-                isSettingUp = isSettingUp,
-                isRunning = isWineRunning,
-                installedComponents = installedComponents,
-                recentExes = recentExes,
-                selectedDriver = selectedDriver,
-                isDxvkEnabled = isDxvkEnabled,
-                onToggleDxvk = { toggleDxvk(it) },
-                isVkd3dEnabled = isVkd3dEnabled,
-                onToggleVkd3d = { toggleVkd3d(it) },
-                displayStatus = displayRev.let { DisplayServer.describe(context) },
-                builtinDisplay = builtinDisplay,
-                onToggleBuiltin = {
-                    DisplayServer.setMode(context, if (it) DisplayServer.Mode.BUILTIN else DisplayServer.Mode.TERMUX)
-                    displayRev++
-                },
-                displayRes = displayRes,
-                onSetRes = { DisplayServer.setResolution(context, it); displayRev++ },
-                displayShm = displayShm,
-                onToggleShm = { DisplayServer.setShm(context, it); displayRev++ },
-                onOpenDisplay = {
-                    val err = DisplayServer.open(context)
-                    if (err != null) addLog(err) else addLog("Opened display")
-                },
-                onOpenScreen = { openScreen() },
-                onLaunchExplorer = { runExplorer() },
-                onRunCmdVer = { runWineArgs(listOf("cmd", "/c", "ver")) },
-                onPickExe = { launchExePickerWithPermission() },
-                onRunManualExe = { path -> runExeWithPermission(path) },
-                onRunRecentExe = { path -> runExeWithPermission(path) },
-                onStop = { stopWine() },
-                onOpenAppLog = { showLogs = true },
-                onOpenSessionLogs = { SessionLogsActivity.open(context) },
-                onOpenControls = { selectedTab = AppTab.Controls },
-                onImportReg = { regLauncher.launch(arrayOf("*/*")) }
             )
         }
     }

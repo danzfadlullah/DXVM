@@ -136,12 +136,6 @@ class SessionLogsActivity : ComponentActivity() {
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) { Text("Send to cloud", maxLines = 1) }
-                        val perfId = if (sum.isNull("perfId")) null else sum.optString("perfId")
-                        if (perfId != null && PerfRecorder.summary(ctx, perfId).length() > 0) OutlinedButton(
-                            onClick = { PerfReportActivity.open(ctx, id = perfId) },
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) { Text("Performance", maxLines = 1) }
                         OutlinedButton(
                             onClick = { share(ctx, d) { isSharing = it } },
                             enabled = !isBusy,
