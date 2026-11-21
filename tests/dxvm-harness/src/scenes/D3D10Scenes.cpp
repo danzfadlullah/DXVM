@@ -14,8 +14,11 @@
   #define NOMINMAX
 #endif
 #include <windows.h>
-#include <d3d10.h>
+// d3d10_1.h must come first: the Windows SDK's d3d10_1.h refuses to compile when
+// d3d10.h was already included (it #errors to keep SAL annotations honest). It
+// pulls in d3d10.h itself, so the second include is a no-op.
 #include <d3d10_1.h>
+#include <d3d10.h>
 
 #include <cstdio>
 #include <string>
