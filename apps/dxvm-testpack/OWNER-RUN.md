@@ -6,10 +6,22 @@ side-loaded driver. One Start button, one text report to paste back.
 ## 1. Install
 
 Download `dxvm-testpack-debug.apk` from the latest `testpack` workflow run (Actions → testpack →
-run → Artifacts → `dxvm-testpack-debug`).
+run → Artifacts → `dxvm-testpack-debug`). It is ~360 MB: the rootfs, Wine and the DXVM component
+are inside it so the app works with no network on first start.
 
-The build is the debug build signed with the debug key, which is what keeps in-place upgrades
-working. Uninstall any earlier TestPack build first only if the signature ever changes.
+The launcher entry is **DXVM TestPack**. The build is the debug build signed with the debug key,
+which is what keeps in-place upgrades working.
+
+⚠️ **It shares PanPlay's package name** (`dev.zenithblue.panvklauncher`), so installing it
+replaces a PanPlay install rather than sitting beside it — and reinstalling PanPlay later
+replaces it in turn. That is deliberate for now: the fork keeps PanPlay's package so its
+container, component store and X-server socket path keep working, and changing the package would
+move the built-in X server's socket out from under the engine. If you need both apps at once,
+say so and the package rename becomes its own task (the X11 socket path in `DisplayPaths.kt` has
+to move with it).
+
+**Which build am I running?** The Test tab's report says `TestPack: 0.1.0-testpack.1 (code 100)`.
+Quote that line when reporting a run so it is clear which round produced it.
 
 ## 2. First start
 

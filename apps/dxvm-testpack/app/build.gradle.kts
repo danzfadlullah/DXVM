@@ -77,8 +77,11 @@ android {
         minSdk = 28
         // targetSdk 28: W^X (targetSdk>=29) blocks execve of wine/wineserver from app data; linker64 fails ("could not exec the wine loader"). Same as Winlator/GameNative legacy.
         targetSdk = 28
-        versionCode = 33
-        versionName = "1.2.7"
+        // The TestPack's own identity, not PanPlay's: the report prints "TestPack: <version>
+        // (code <n>)", so each round's APK is distinguishable from the last one on the phone.
+        // versionCode stays above PanPlay's 33 so an existing install upgrades in place.
+        versionCode = 100
+        versionName = "0.1.0-testpack.1"
 
         ndk {
             abiFilters.add("arm64-v8a")
